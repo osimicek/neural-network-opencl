@@ -9,9 +9,43 @@
 
 struct TaskData {
    float *learningInputs, *learningOutputs;
-   int learningLine, totalLearningLines;
+   int totalLearningLines;
    float *testInputs, *testOutputs;
-   int testLine, totalTestLines;
+   int totalTestLines;
+};
+
+struct Setup {
+    int numOfLayers;
+    int *layers;
+    bool classification;
+    float minOutputValue;
+    float maxOutputValue;
+    float learningFactor;
+    float lambda;
+};
+
+struct Criteria {
+    int maxEpochs;
+    float minProgress;
+    float maxGeneralizationLoss;
+};
+
+struct State {
+    int epoch;
+    float *weights;
+    float *values;
+    float *errors;
+    int testLine;
+    int learningLine;
+};
+
+struct NeuralNetwork {
+    Setup setup;
+    Criteria criteria;
+    State state;
+    float bestAccurancy[2]; // [epochID, accurancy]
+    float *accurancyHistory; // [accurancy1, accurancy2, ...].length = maxEpochs
+    int *classificationAccurancyHistory;
 };
 
 #if USE_PAPI
@@ -42,12 +76,14 @@ PapiCounterList papi_routines;
  *
  */
 
-void printNeuralNetwork(float *values,
-                        float *weights,
-                        float *expectedOutput,
-                        float *errors,
-                        int *layers,
-                        int numOfLayers) {
+void printNeuralNetwork(NeuralNetwork *neuralNetwork,
+                        float *expectedOutput) {
+    int numOfLayers = neuralNetwork->setup.numOfLayers;
+    int *layers = neuralNetwork->setup.layers;
+    float *values = neuralNetwork->state.values;
+    float *weights = neuralNetwork->state.weights;
+    float *errors = neuralNetwork->state.errors;
+
     printf("------------#### Neural network state ####------------\n");
     printf("Values:\n");
     int valueOffset = 0;
@@ -102,14 +138,28 @@ void printNeuralNetwork(float *values,
 /**
  * Prints accurancy for every output neuron.
  */
-void printAccurancy(int *accurancy, int numOfRecords) {
-    for (int neuron = 0; neuron < numOfRecords; neuron += 4) {
+void printAccurancy(int *accurancy, int numOfNeurons) {
+    for (int neuron = 0; neuron < numOfNeurons; neuron++) {
         printf("N. %d\t| true T | true F | precision\n", neuron / 4);
-        printf("pred. T\t| %d\t | %d\t  | %5.1f%%\n", accurancy[neuron], accurancy[neuron + 1], accurancy[neuron] / ((accurancy[neuron] + accurancy[neuron + 1]) / 100.0));
-        printf("pred. F\t| %d\t | %d\t  | %5.1f%%\n", accurancy[neuron + 2], accurancy[neuron + 3], accurancy[neuron + 3] / ((accurancy[neuron + 2] + accurancy[neuron + 3]) / 100.0));
-        printf("recall\t| %5.1f%% | %5.1f%% \n\n", accurancy[neuron] / ((accurancy[neuron] + accurancy[neuron + 2]) / 100.0),
-                                      accurancy[neuron + 3] / ((accurancy[neuron + 1] + accurancy[neuron + 3]) / 100.0));
+        printf("pred. T\t| %d\t | %d\t  | %5.1f%%\n", accurancy[neuron * 4], accurancy[neuron * 4 + 1], accurancy[neuron * 4] / ((accurancy[neuron * 4] + accurancy[neuron * 4 + 1]) / 100.0));
+        printf("pred. F\t| %d\t | %d\t  | %5.1f%%\n", accurancy[neuron * 4 + 2], accurancy[neuron * 4 + 3], accurancy[neuron * 4 + 3] / ((accurancy[neuron * 4 + 2] + accurancy[neuron * 4 + 3]) / 100.0));
+        printf("recall\t| %5.1f%% | %5.1f%% \n\n", accurancy[neuron * 4] / ((accurancy[neuron * 4] + accurancy[neuron * 4 + 2]) / 100.0),
+                                      accurancy[neuron * 4 + 3] / ((accurancy[neuron * 4 + 1] + accurancy[neuron * 4 + 3]) / 100.0));
     }
+}
+
+
+/**
+ * Returns overall accuracy.
+ */
+float getTotalAccurancy(int *accurancy, int numOfNeurons) {
+    float total = 0.f;
+    int correct = 0;
+    for (int neuron = 0; neuron < numOfNeurons; neuron++) {
+        total += accurancy[neuron * 4] + accurancy[neuron * 4 + 1] + accurancy[neuron * 4 + 2] + accurancy[neuron * 4 + 3];
+        correct += accurancy[neuron * 4] + accurancy[neuron * 4 + 3];
+    }
+    return correct/total;
 }
 
 /**
@@ -117,17 +167,18 @@ void printAccurancy(int *accurancy, int numOfRecords) {
  * Output vector si compared with expected output and error is backpropagated throw net and
  * weights are modified.
  */
-void neuralLearnCycle(float *values,
-                float *weights,
-                float *expectedOutput,
-                float *errors,
-                int *layers,
-                int numOfLayers,
-                float learnFactor,
-                float lambda) {
+void neuralLearnCycle(NeuralNetwork *neuralNetwork, 
+                float *expectedOutput) {
     #if USE_PAPI
     papi_routines["network_learning_cycle"].Start();
     #endif
+    int numOfLayers = neuralNetwork->setup.numOfLayers;
+    int *layers = neuralNetwork->setup.layers;
+    float *values = neuralNetwork->state.values;
+    float *weights = neuralNetwork->state.weights;
+    float *errors = neuralNetwork->state.errors;
+
+
     int valueOffset = 0;
     int prevValueOffset = 0;
     int weightOffset = 0;
@@ -143,7 +194,7 @@ void neuralLearnCycle(float *values,
                 value += values[prevNeuron + prevValueOffset] * weights[prevNeuron + weightOffset];
             }
             // std::cout << value << "  ";
-            values[neuron + valueOffset] = 1. / (1. + exp(-lambda * value));
+            values[neuron + valueOffset] = 1. / (1. + exp(-neuralNetwork->setup.lambda * value));
             weightOffset += prevNeurons;
         }
         prevValueOffset += prevNeurons;
@@ -158,10 +209,11 @@ void neuralLearnCycle(float *values,
         } else {
             boolValue = 0;
         }
+            // std::cout << value << " "; 
 
         if (expectedOutput[neuron] - boolValue) {
             // std::cout << "chyba u " << neuron << " " << value << std::endl;
-            float ex = 1. / (1. + exp(-lambda * value));;
+            float ex = 1. / (1. + exp(-neuralNetwork->setup.lambda * value));;
             // std::cout << "velikost ch " << (expectedOutput[neuron] - value) * (ex * (1 - ex)) << " ex " << ex << std::endl;
             errors[neuron + valueOffset] = (expectedOutput[neuron] - value) * (ex * (1 - ex));
         } else {
@@ -169,6 +221,7 @@ void neuralLearnCycle(float *values,
         }
         // std::cout << (expectedOutput[neuron] - value) << std::endl;
     }
+    // std::cout  << std::endl;
     int followValueOffset = valueOffset;
     for (int layer = numOfLayers - 2; layer > 0; layer--) {
         int neurons = layers[layer];
@@ -183,12 +236,12 @@ void neuralLearnCycle(float *values,
                               weights[followNeuron + weightOffset];
             }
             float value = values[neuron + valueOffset];
-            float ex = exp(-lambda*value);
+            float ex = exp(-neuralNetwork->setup.lambda*value);
             errors[neuron + valueOffset] = weightError * (ex * (1 - ex));
         }
         followValueOffset -= neurons;
     }
-    // printNeuralNetwork(values, weights, expectedOutput, errors, layers, numOfLayers);
+    // printNeuralNetwork(neuralNetwork, expectedOutput);
     // error propagation
     weightOffset = 0;
     valueOffset = 0;
@@ -199,7 +252,7 @@ void neuralLearnCycle(float *values,
             float value = 0;
             for (int prevNeuron = 0; prevNeuron < prevNeurons; prevNeuron++) {
                 weights[prevNeuron + weightOffset] = weights[prevNeuron + weightOffset] +
-                                                     learnFactor * values[prevNeuron + valueOffset] *
+                                                     neuralNetwork->setup.learningFactor * values[prevNeuron + valueOffset] *
                                                      errors[neuron + valueOffset + prevNeurons];
             }
             weightOffset += prevNeurons;
@@ -207,7 +260,7 @@ void neuralLearnCycle(float *values,
         valueOffset += prevNeurons;
     }
 
-    // printNeuralNetwork(values, weights, expectedOutput, errors, layers, numOfLayers);
+    // printNeuralNetwork(neuralNetwork, expectedOutput);
 
     #if USE_PAPI
     papi_routines["network_learning_cycle"].Stop();
@@ -218,16 +271,17 @@ void neuralLearnCycle(float *values,
  * Performs a test cycle of neural network. Input vector is transformed to output vector.
  * Output vector si compared with expected output. Accurancy is counted from this error.
  */
-void neuralTestCycle(float *values,
-                float *weights,
+void neuralTestCycle(NeuralNetwork *neuralNetwork, 
                 float *expectedOutput,
-                int *layers,
-                int numOfLayers,
-                float lambda,
                 int *accurancy) {
     #if USE_PAPI
     papi_routines["network_test_cycle"].Start();
     #endif
+    int numOfLayers = neuralNetwork->setup.numOfLayers;
+    int *layers = neuralNetwork->setup.layers;
+    float *values = neuralNetwork->state.values;
+    float *weights = neuralNetwork->state.weights;
+
     int valueOffset = 0;
     int prevValueOffset = 0;
     int weightOffset = 0;
@@ -243,7 +297,7 @@ void neuralTestCycle(float *values,
                 value += values[prevNeuron + prevValueOffset] * weights[prevNeuron + weightOffset];
             }
             // std::cout << value << "  ";
-            values[neuron + valueOffset] = 1. / (1. + exp(-lambda * value));
+            values[neuron + valueOffset] = 1. / (1. + exp(-neuralNetwork->setup.lambda * value));
             weightOffset += prevNeurons;
         }
         prevValueOffset += prevNeurons;
@@ -299,57 +353,60 @@ void initAccurancy(int *accurancy, int length) {
     }
 }
 
+
 /**
  * Returns a learning vector for neural network.
  */
-bool getLearningVector(TaskData *taskData, int *layers, int numOfLayers, float *values, float *expectedOutput) {
-    if (taskData->learningLine >= taskData->totalLearningLines) {
+bool getLearningVector(NeuralNetwork *neuralNetwork, TaskData *taskData, float *expectedOutput) {
+
+    if (neuralNetwork->state.learningLine >= taskData->totalLearningLines) {
         return false;
     }
-    for (int input = 0; input < layers[0]; input++) {
-        values[input] = taskData->learningInputs[input + taskData->learningLine * layers[0]];
+    for (int input = 0; input < neuralNetwork->setup.layers[0]; input++) {
+        neuralNetwork->state.values[input] = taskData->learningInputs[input + neuralNetwork->state.learningLine * neuralNetwork->setup.layers[0]];
     }
 
-    for (int output = 0; output < layers[numOfLayers - 1]; output++) {
-        expectedOutput[output] = taskData->learningOutputs[output + taskData->learningLine * layers[numOfLayers - 1]];
+    for (int output = 0; output < neuralNetwork->setup.layers[neuralNetwork->setup.numOfLayers - 1]; output++) {
+        expectedOutput[output] = taskData->learningOutputs[output + neuralNetwork->state.learningLine * neuralNetwork->setup.layers[neuralNetwork->setup.numOfLayers - 1]];
     }
-    taskData->learningLine ++;
+    neuralNetwork->state.learningLine ++;
     return true;
 }
 
 /**
  * Returns a test vector for neural network.
  */
-bool getTestVector(TaskData *taskData, int *layers, int numOfLayers, float *values, float *expectedOutput) {
-    if (taskData->testLine >= taskData->totalTestLines) {
+bool getTestVector(NeuralNetwork *neuralNetwork, TaskData *taskData, float *expectedOutput) {
+
+    if (neuralNetwork->state.testLine >= taskData->totalTestLines) {
         return false;
     }
-    for (int input = 0; input < layers[0]; input++) {
-        values[input] = taskData->testInputs[input + taskData->testLine * layers[0]];
+    for (int input = 0; input < neuralNetwork->setup.layers[0]; input++) {
+        neuralNetwork->state.values[input] = taskData->testInputs[input + neuralNetwork->state.testLine * neuralNetwork->setup.layers[0]];
     }
 
-    for (int output = 0; output < layers[numOfLayers - 1]; output++) {
-        expectedOutput[output] = taskData->testOutputs[output + taskData->testLine * layers[numOfLayers - 1]];
+    for (int output = 0; output < neuralNetwork->setup.layers[neuralNetwork->setup.numOfLayers - 1]; output++) {
+        expectedOutput[output] = taskData->testOutputs[output + neuralNetwork->state.testLine * neuralNetwork->setup.layers[neuralNetwork->setup.numOfLayers - 1]];
     }
-    taskData->testLine ++;
+    neuralNetwork->state.testLine ++;
     return true;
 }
 
 /**
  * Reads and stores input vectors for learning and testing neural network.
  */
-void loadInputData(const char* learningFilename, const char* testFilename, int *layers, int numOfLayers, TaskData *taskData) {
+void loadInputData(const char* learningFilename, const char* testFilename, NeuralNetwork *neuralNetwork, TaskData *taskData) {
     std::ifstream learningInput(learningFilename);
 
     float i1, i2, i3, i4, i5, i6, i7, i8, i9;
     int o1, o2;
     int totalLearningLines = std::count(std::istreambuf_iterator<char>(learningInput), std::istreambuf_iterator<char>(), '\n');
     taskData->totalLearningLines = totalLearningLines;
-    taskData->learningLine = 0;
+    neuralNetwork->state.learningLine = 0;
     learningInput.seekg(0);
     // std::cout << totalLearningLines << std::endl;
-    taskData->learningInputs = (float *) malloc (totalLearningLines * layers[0] * sizeof(float));
-    taskData->learningOutputs = (float *) malloc (totalLearningLines * layers[numOfLayers - 1] * sizeof(float));
+    taskData->learningInputs = (float *) malloc (totalLearningLines * neuralNetwork->setup.layers[0] * sizeof(float));
+    taskData->learningOutputs = (float *) malloc (totalLearningLines * neuralNetwork->setup.layers[neuralNetwork->setup.numOfLayers - 1] * sizeof(float));
     unsigned long int learningInputCounter = 0;
     unsigned long int learningOutputCounter = 0;
     while (learningInput >> i1 >> i2 >> i3 >> i4 >> i5 >> i6 >> i7 >> i8 >> i9 >> o1 >> o2)
@@ -371,11 +428,11 @@ void loadInputData(const char* learningFilename, const char* testFilename, int *
     std::ifstream testInput(learningFilename);
     int totalTestLines = std::count(std::istreambuf_iterator<char>(testInput), std::istreambuf_iterator<char>(), '\n');
     taskData->totalTestLines = totalTestLines;
-    taskData->testLine = 0;
+    neuralNetwork->state.testLine = 0;
     testInput.seekg(0);
     // std::cout << totalTestLines << std::endl;
-    taskData->testInputs = (float *) malloc (totalTestLines * layers[0] * sizeof(float));
-    taskData->testOutputs = (float *) malloc (totalTestLines * layers[numOfLayers - 1] * sizeof(float));
+    taskData->testInputs = (float *) malloc (totalTestLines * neuralNetwork->setup.layers[0] * sizeof(float));
+    taskData->testOutputs = (float *) malloc (totalTestLines * neuralNetwork->setup.layers[neuralNetwork->setup.numOfLayers - 1] * sizeof(float));
     unsigned long int testInputCounter = 0;
     unsigned long int testOutputCounter = 0;
     while (testInput >> i1 >> i2 >> i3 >> i4 >> i5 >> i6 >> i7 >> i8 >> i9 >> o1 >> o2)
@@ -398,59 +455,80 @@ void loadInputData(const char* learningFilename, const char* testFilename, int *
 /**
  * Performs trainign and testing of neural network.
  */
-void runNeuralNetwork(float learnFactor) {
-    int neuronsPerLayer = 32;
-    int numOfLayers = 4;
-    int layers[] = {9, 29, 19, 2};
-    // int layers[] = {9, 9, 9, 2};
+void runNeuralNetwork(float learningFactor) {
+    NeuralNetwork neuralNetwork;
+    neuralNetwork.setup.lambda = 1;
+    neuralNetwork.setup.learningFactor = learningFactor;
+    neuralNetwork.setup.numOfLayers = 4;
+    int tmpLayers[] = {9, 9, 9, 2};
+    neuralNetwork.setup.layers = tmpLayers;
+
+    neuralNetwork.criteria.maxEpochs = 25;
+    neuralNetwork.criteria.minProgress = 0.0001f;
+    neuralNetwork.criteria.maxGeneralizationLoss = 0.05;
     int *accurancy; 
     
-    float *weights, *values, *errors, *expectedOutput;
+    float *expectedOutput;
     TaskData taskData;
 
     int numOfWeights = 0;
-    for (int i = 1; i < numOfLayers; i++) {
-        numOfWeights += layers[i] * layers[i - 1];
+    for (int i = 1; i < neuralNetwork.setup.numOfLayers; i++) {
+        numOfWeights += neuralNetwork.setup.layers[i] * neuralNetwork.setup.layers[i - 1];
     }
 
-    weights = (float *) malloc (numOfWeights * sizeof(float));
-    initWeights(weights, numOfWeights);
+    neuralNetwork.state.weights = (float *) malloc (numOfWeights * sizeof(float));
+    initWeights(neuralNetwork.state.weights, numOfWeights);
 
-    accurancy = (int *) malloc (4 * layers[numOfLayers - 1] * sizeof(int));
-    initAccurancy(accurancy, 4 * layers[numOfLayers - 1]);
+    int accurancyLength = 4 * neuralNetwork.setup.layers[neuralNetwork.setup.numOfLayers - 1];
+    accurancy = (int *) malloc (accurancyLength * sizeof(int));
+    initAccurancy(accurancy, 4 * neuralNetwork.setup.layers[neuralNetwork.setup.numOfLayers - 1]);
     
     int numOfValues = 0;
-    for (int i = 0; i < numOfLayers; i++) {
-        numOfValues += layers[i];
+    for (int i = 0; i < neuralNetwork.setup.numOfLayers; i++) {
+        numOfValues += neuralNetwork.setup.layers[i];
     }
-    values =  (float *) malloc (numOfValues * sizeof(float));
-    errors =  (float *) malloc (numOfValues * sizeof(float));
+    neuralNetwork.state.values =  (float *) malloc (numOfValues * sizeof(float));
+    neuralNetwork.state.errors =  (float *) malloc (numOfValues * sizeof(float));
     
-    expectedOutput =  (float *) malloc (layers[numOfLayers - 1] * sizeof(float));
+    expectedOutput =  (float *) malloc (neuralNetwork.setup.layers[neuralNetwork.setup.numOfLayers - 1] * sizeof(float));
 
-    loadInputData("cancerL.dt", "cancerT.dt", layers, numOfLayers, &taskData);
-    
-    // learning
-    while (getLearningVector(&taskData, layers, numOfLayers, values, expectedOutput)) {
-        neuralLearnCycle(values, weights, expectedOutput, errors, layers, numOfLayers, learnFactor, 1);
-        if (taskData.learningLine > 340 && taskData.learningLine < 350) {
-            // printNeuralNetwork(values, weights, expectedOutput, errors, layers, numOfLayers);
+    loadInputData("cancerL.dt", "cancerT.dt", &neuralNetwork, &taskData);
+    float totalAccurancy = 0.f;
+    float lastTotalAccurancy = -100.f;
+    for (neuralNetwork.state.epoch = 0; neuralNetwork.state.epoch < neuralNetwork.criteria.maxEpochs; neuralNetwork.state.epoch++) {
+        neuralNetwork.state.learningLine = 0;
+        neuralNetwork.state.testLine = 0;
+        // learning
+        while (getLearningVector(&neuralNetwork, &taskData, expectedOutput)) {
+            neuralLearnCycle(&neuralNetwork, expectedOutput);
+            if (neuralNetwork.state.learningLine > 3 && neuralNetwork.state.learningLine < 350) {
+                // printNeuralNetwork(neuralNetwork, expectedOutput);
+                // return;
+            }
         }
-    }
-
-    //testing
-    while (getTestVector(&taskData, layers, numOfLayers, values, expectedOutput)) {
-        neuralTestCycle(values, weights, expectedOutput, layers, numOfLayers, 1, accurancy);
-        if (taskData.testLine > 340 && taskData.testLine < 350) {
-            // printNeuralNetwork(values, weights, expectedOutput, errors, layers, numOfLayers);
+        initAccurancy(accurancy, accurancyLength);
+        //testing
+        while (getTestVector(&neuralNetwork, &taskData, expectedOutput)) {
+            neuralTestCycle(&neuralNetwork, expectedOutput, accurancy);
+            if (neuralNetwork.state.testLine > 340 && neuralNetwork.state.testLine < 350) {
+                // printNeuralNetwork(neuralNetwork, expectedOutput);
+            }
         }
+        totalAccurancy = getTotalAccurancy(accurancy, neuralNetwork.setup.layers[neuralNetwork.setup.numOfLayers - 1]);
+        float epsilon = totalAccurancy - lastTotalAccurancy;
+        // std::cout << "presnost " << totalAccurancy << " "<< epsilon<< std::endl; 
+        if (epsilon < 0.0001f) {
+            // break;
+        }
+        lastTotalAccurancy = totalAccurancy;
     }
+    printf("%f  %f\n", neuralNetwork.setup.learningFactor, getTotalAccurancy(accurancy, neuralNetwork.setup.layers[neuralNetwork.setup.numOfLayers - 1]));
+    printAccurancy(accurancy, neuralNetwork.setup.layers[neuralNetwork.setup.numOfLayers - 1]);
 
-    printAccurancy(accurancy, 4 * layers[numOfLayers - 1]);
     // std::cout << learnFactor <<" : " << accurancy[0]+accurancy[3]+accurancy[4]+accurancy[7] <<std::endl;
-    free(weights);
-    free(values);
-    free(errors);
+    free(neuralNetwork.state.weights);
+    free(neuralNetwork.state.values);
+    free(neuralNetwork.state.errors);
     free(expectedOutput);
     free(accurancy);
     free(taskData.learningInputs);
@@ -467,9 +545,9 @@ int main(int argc, char **argv)
     papi_routines.AddRoutine("network_test_cycle");
     #endif
 
-    // for (float l = 5.3; l < 5.5; l +=0.01) {
+    // for (float l = 0.01; l < 10; l +=0.1) {
         // runNeuralNetwork(l);
-        runNeuralNetwork(0.4);
+        runNeuralNetwork(0.4f);
     // }
 
     #if USE_PAPI
