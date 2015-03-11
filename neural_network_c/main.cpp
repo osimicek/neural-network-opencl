@@ -43,8 +43,9 @@ struct NeuralNetwork {
     Setup setup;
     Criteria criteria;
     State state;
-    float bestAccurancy[2]; // [epochID, accurancy]
-    float *accurancyHistory; // [accurancy1, accurancy2, ...].length = maxEpochs
+    float currentSquareErrorCounter;  // sum of square errors
+    float bestSquareError[2]; // [epochID, accurancy]     avg square error
+    float *squareErrorHistory; // [accurancy1, accurancy2, ...].length = maxEpochs    avg square error
     int *classificationAccurancyHistory;
 };
 
@@ -203,15 +204,13 @@ void neuralLearnCycle(NeuralNetwork *neuralNetwork,
     // error counting backwards
     for (int neuron = 0; neuron < layers[numOfLayers - 1]; neuron++) {
         float value = values[neuron + valueOffset];
-        int boolValue;
-        if (value > 0.5) { // conversion to bool
-            boolValue = 1;
-        } else {
-            boolValue = 0;
-        }
-            // std::cout << value << " "; 
 
-        if (expectedOutput[neuron] - boolValue) {
+        float cmpValue = value;
+        if (neuralNetwork->setup.classification) {
+            cmpValue = round(value);
+        }
+
+        if (expectedOutput[neuron] - cmpValue) {
             // std::cout << "chyba u " << neuron << " " << value << std::endl;
             float ex = 1. / (1. + exp(-neuralNetwork->setup.lambda * value));;
             // std::cout << "velikost ch " << (expectedOutput[neuron] - value) * (ex * (1 - ex)) << " ex " << ex << std::endl;
@@ -272,8 +271,7 @@ void neuralLearnCycle(NeuralNetwork *neuralNetwork,
  * Output vector si compared with expected output. Accurancy is counted from this error.
  */
 void neuralTestCycle(NeuralNetwork *neuralNetwork, 
-                float *expectedOutput,
-                int *accurancy) {
+                float *expectedOutput) {
     #if USE_PAPI
     papi_routines["network_test_cycle"].Start();
     #endif
@@ -304,28 +302,41 @@ void neuralTestCycle(NeuralNetwork *neuralNetwork,
     }
 
     // error counting backwards
-    for (int neuron = 0; neuron < layers[numOfLayers - 1]; neuron++) {
+    int numOfOutputNeurons = layers[numOfLayers - 1];
+    for (int neuron = 0; neuron < numOfOutputNeurons; neuron++) {
         float value = values[neuron + valueOffset];
-        int boolValue;
-        if (value > 0.5) { // conversion to bool
-            boolValue = 1;
-        } else {
-            boolValue = 0;
-        }
+        float diff;
+        
 
-        if (boolValue == 1 && expectedOutput[neuron] == 1) {
-            // true positive
-            accurancy[4 * neuron] += 1;
-            // std::cout << " ted "<< " " << 4 * neuron <<" "<< accurancy[4 * neuron] << std::endl;
-        } else if (boolValue == 1 && expectedOutput[neuron] == 0) {
-            // true negative
-            accurancy[4 * neuron + 1] += 1;
-        } else if (boolValue == 0 && expectedOutput[neuron] == 1) {
-            // false negative
-            accurancy[4 * neuron + 2] += 1;
-        } else if (boolValue == 0 && expectedOutput[neuron] == 0) {
-            // false positive
-            accurancy[4 * neuron + 3] += 1; 
+        if (neuralNetwork->setup.classification) {
+            // conversion to bool
+            int boolValue = round(value);
+            diff = expectedOutput[neuron] - value;
+            // neuralNetwork->currentSquareErrorCounter += diff * diff; 
+
+            int pos = 4 * neuron + 4 * numOfOutputNeurons * neuralNetwork->state.epoch;
+            if (boolValue == 1 && expectedOutput[neuron] == 1) {
+                // true positive
+                neuralNetwork->classificationAccurancyHistory[pos] += 1;
+            } else if (boolValue == 1 && expectedOutput[neuron] == 0) {
+                // true negative
+                // diff = expectedOutput[neuron] - value;
+                neuralNetwork->currentSquareErrorCounter += 1; 
+
+                neuralNetwork->classificationAccurancyHistory[pos + 1] += 1;
+            } else if (boolValue == 0 && expectedOutput[neuron] == 1) {
+                // false negative
+                // diff = expectedOutput[neuron] - value;
+                neuralNetwork->currentSquareErrorCounter += 1; 
+
+                neuralNetwork->classificationAccurancyHistory[pos + 2] += 1;
+            } else if (boolValue == 0 && expectedOutput[neuron] == 0) {
+                // false positive
+                neuralNetwork->classificationAccurancyHistory[pos + 3] += 1; 
+            }
+        } else {
+            diff = expectedOutput[neuron] - value;
+            neuralNetwork->currentSquareErrorCounter += diff * diff; 
         }
     }
 
@@ -353,6 +364,31 @@ void initAccurancy(int *accurancy, int length) {
     }
 }
 
+/**
+ * Finds lowest square error and sets it as the best one.
+ */
+void findAndSetBestSquareError(NeuralNetwork *neuralNetwork) {
+    neuralNetwork->bestSquareError[0] = 0;
+    neuralNetwork->bestSquareError[1] = neuralNetwork->squareErrorHistory[0];
+
+    for (int i = 1; i <= neuralNetwork->state.epoch; i++) {
+        if (neuralNetwork->squareErrorHistory[i] < neuralNetwork->bestSquareError[1]) {
+            neuralNetwork->bestSquareError[0] = i;
+            neuralNetwork->bestSquareError[1] = neuralNetwork->squareErrorHistory[i];
+        }
+    }
+}
+
+/**
+ * Returns sum of squareErrors
+ */
+float squareErrorSum(NeuralNetwork *neuralNetwork) {
+    float sum = 0.0f;
+    for (int i = 0; i <= neuralNetwork->state.epoch; i++) {
+        sum += neuralNetwork->squareErrorHistory[i];
+    }
+    return sum;
+}
 
 /**
  * Returns a learning vector for neural network.
@@ -457,16 +493,18 @@ void loadInputData(const char* learningFilename, const char* testFilename, Neura
  */
 void runNeuralNetwork(float learningFactor) {
     NeuralNetwork neuralNetwork;
-    neuralNetwork.setup.lambda = 1;
+    neuralNetwork.setup.classification = true;
+    neuralNetwork.setup.lambda = 1.f;
     neuralNetwork.setup.learningFactor = learningFactor;
     neuralNetwork.setup.numOfLayers = 4;
     int tmpLayers[] = {9, 9, 9, 2};
     neuralNetwork.setup.layers = tmpLayers;
 
+    neuralNetwork.setup.minOutputValue = 0.0f;
+    neuralNetwork.setup.maxOutputValue = 1.0f;
     neuralNetwork.criteria.maxEpochs = 25;
-    neuralNetwork.criteria.minProgress = 0.0001f;
-    neuralNetwork.criteria.maxGeneralizationLoss = 0.05;
-    int *accurancy; 
+    neuralNetwork.criteria.minProgress = 5.0f;
+    neuralNetwork.criteria.maxGeneralizationLoss = 4.0f;
     
     float *expectedOutput;
     TaskData taskData;
@@ -479,9 +517,16 @@ void runNeuralNetwork(float learningFactor) {
     neuralNetwork.state.weights = (float *) malloc (numOfWeights * sizeof(float));
     initWeights(neuralNetwork.state.weights, numOfWeights);
 
-    int accurancyLength = 4 * neuralNetwork.setup.layers[neuralNetwork.setup.numOfLayers - 1];
-    accurancy = (int *) malloc (accurancyLength * sizeof(int));
-    initAccurancy(accurancy, 4 * neuralNetwork.setup.layers[neuralNetwork.setup.numOfLayers - 1]);
+    int classificationAccurancyLength = 4 * neuralNetwork.setup.layers[neuralNetwork.setup.numOfLayers - 1] * neuralNetwork.criteria.maxEpochs;
+    if (neuralNetwork.setup.classification) {
+        neuralNetwork.classificationAccurancyHistory = (int *) malloc (classificationAccurancyLength * sizeof(int));
+    }
+    initAccurancy(neuralNetwork.classificationAccurancyHistory, classificationAccurancyLength);
+
+    neuralNetwork.squareErrorHistory = (float *) malloc (2 * neuralNetwork.setup.layers[neuralNetwork.setup.numOfLayers - 1] * neuralNetwork.criteria.maxEpochs * sizeof(int));
+    neuralNetwork.bestSquareError[0] = -1;
+    neuralNetwork.bestSquareError[1] = -1;
+    neuralNetwork.currentSquareErrorCounter = 0.0f;
     
     int numOfValues = 0;
     for (int i = 0; i < neuralNetwork.setup.numOfLayers; i++) {
@@ -493,8 +538,7 @@ void runNeuralNetwork(float learningFactor) {
     expectedOutput =  (float *) malloc (neuralNetwork.setup.layers[neuralNetwork.setup.numOfLayers - 1] * sizeof(float));
 
     loadInputData("cancerL.dt", "cancerT.dt", &neuralNetwork, &taskData);
-    float totalAccurancy = 0.f;
-    float lastTotalAccurancy = -100.f;
+    float generalizationLoss, progress;
     for (neuralNetwork.state.epoch = 0; neuralNetwork.state.epoch < neuralNetwork.criteria.maxEpochs; neuralNetwork.state.epoch++) {
         neuralNetwork.state.learningLine = 0;
         neuralNetwork.state.testLine = 0;
@@ -506,31 +550,39 @@ void runNeuralNetwork(float learningFactor) {
                 // return;
             }
         }
-        initAccurancy(accurancy, accurancyLength);
         //testing
+        neuralNetwork.currentSquareErrorCounter = 0.0f;
         while (getTestVector(&neuralNetwork, &taskData, expectedOutput)) {
-            neuralTestCycle(&neuralNetwork, expectedOutput, accurancy);
+            neuralTestCycle(&neuralNetwork, expectedOutput);
             if (neuralNetwork.state.testLine > 340 && neuralNetwork.state.testLine < 350) {
                 // printNeuralNetwork(neuralNetwork, expectedOutput);
             }
         }
-        totalAccurancy = getTotalAccurancy(accurancy, neuralNetwork.setup.layers[neuralNetwork.setup.numOfLayers - 1]);
-        float epsilon = totalAccurancy - lastTotalAccurancy;
-        // std::cout << "presnost " << totalAccurancy << " "<< epsilon<< std::endl; 
-        if (epsilon < 0.0001f) {
-            // break;
+        neuralNetwork.squareErrorHistory[neuralNetwork.state.epoch] = (neuralNetwork.setup.maxOutputValue - neuralNetwork.setup.minOutputValue) * neuralNetwork.currentSquareErrorCounter/ (neuralNetwork.setup.layers[neuralNetwork.setup.numOfLayers - 1] * taskData.totalTestLines);
+        findAndSetBestSquareError(&neuralNetwork);
+        // std::cout << neuralNetwork.squareErrorHistory[neuralNetwork.state.epoch] << std::endl;
+        if (neuralNetwork.state.epoch > 0) {
+            generalizationLoss = neuralNetwork.squareErrorHistory[neuralNetwork.state.epoch] / neuralNetwork.bestSquareError[1] - 1;
+            progress = squareErrorSum(&neuralNetwork) / ((neuralNetwork.state.epoch + 1) * neuralNetwork.bestSquareError[1]) - 1;
+            if (generalizationLoss > neuralNetwork.criteria.maxGeneralizationLoss || progress < neuralNetwork.criteria.minProgress) {
+                // break;
+            }
         }
-        lastTotalAccurancy = totalAccurancy;
+        std::cout << neuralNetwork.squareErrorHistory[neuralNetwork.state.epoch] << "  "<< neuralNetwork.bestSquareError[1]<< "\t"<< generalizationLoss << "\t\t"<< progress<< std::endl;
     }
-    printf("%f  %f\n", neuralNetwork.setup.learningFactor, getTotalAccurancy(accurancy, neuralNetwork.setup.layers[neuralNetwork.setup.numOfLayers - 1]));
-    printAccurancy(accurancy, neuralNetwork.setup.layers[neuralNetwork.setup.numOfLayers - 1]);
+    neuralNetwork.state.epoch--;
+    printf("END Learn: %f Epochs: %f Best avg err %f\n", neuralNetwork.setup.learningFactor, neuralNetwork.bestSquareError[0], neuralNetwork.bestSquareError[1]);
+    printAccurancy(&(neuralNetwork.classificationAccurancyHistory[4 * neuralNetwork.setup.layers[neuralNetwork.setup.numOfLayers - 1] * neuralNetwork.state.epoch]), neuralNetwork.setup.layers[neuralNetwork.setup.numOfLayers - 1]);
 
     // std::cout << learnFactor <<" : " << accurancy[0]+accurancy[3]+accurancy[4]+accurancy[7] <<std::endl;
     free(neuralNetwork.state.weights);
     free(neuralNetwork.state.values);
     free(neuralNetwork.state.errors);
     free(expectedOutput);
-    free(accurancy);
+    if (neuralNetwork.setup.classification) {
+        free(neuralNetwork.classificationAccurancyHistory);
+    }
+    free(neuralNetwork.squareErrorHistory);
     free(taskData.learningInputs);
     free(taskData.learningOutputs);
     free(taskData.testInputs);
@@ -545,9 +597,10 @@ int main(int argc, char **argv)
     papi_routines.AddRoutine("network_test_cycle");
     #endif
 
-    // for (float l = 0.01; l < 10; l +=0.1) {
+    // for (float l = 0.1; l < 10; l +=0.1) {
         // runNeuralNetwork(l);
         runNeuralNetwork(0.4f);
+        // runNeuralNetwork(3.6f);
     // }
 
     #if USE_PAPI
