@@ -1,5 +1,8 @@
 #include "initPapi.h"
+
+#if USE_PAPI_LEARN_AND_TEST || USE_PAPI_LEARN_DETAIL || USE_PAPI_TEST_DETAIL
 PapiCounterList *papi_routines;
+#endif
 
 void initPapi() {
     #if USE_PAPI_LEARN_AND_TEST || USE_PAPI_LEARN_DETAIL || USE_PAPI_TEST_DETAIL

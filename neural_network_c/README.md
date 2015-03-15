@@ -7,5 +7,13 @@ PROBEN1 data were used for testing.
 - PAPI library
 
 ## Usage
-1. `make`
-2. `make run`
+Makefile usage
+
+### Compile
+- `make`  - g++ without PAPI
+- `make papi1`  - g++ with PAPI learning and testing counters
+- `make papi2`  - g++ with PAPI detail learning and testing counters
+
+### Run
+- `make run`  - NOPAPI | PAPI FP counters
+- `make runm` - NOPAPI | PAPI memory counters
