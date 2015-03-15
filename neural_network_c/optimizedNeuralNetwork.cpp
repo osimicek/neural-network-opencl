@@ -6,9 +6,10 @@
 #include <algorithm>
 #include "initPapi.h"
 #include "naiveNeuralNetwork.h"
+#include "optimizedNeuralNetwork.h"
+using namespace naive;
 
-namespace naive {
-
+namespace optimized {
     /**
      * Prints
      * Structure of neural network 9 3 5 2:
@@ -91,18 +92,7 @@ namespace naive {
         printf("---------------########################---------------\n");
     }
 
-    /**
-     * Prints accurancy for every output neuron.
-     */
-    void printClassificationAccurancy(int *accurancy, int numOfNeurons) {
-        for (int neuron = 0; neuron < numOfNeurons; neuron++) {
-            printf("N. %d\t| true T | true F | precision\n", neuron / 4);
-            printf("pred. T\t| %d\t | %d\t  | %5.1f%%\n", accurancy[neuron * 4], accurancy[neuron * 4 + 1], accurancy[neuron * 4] / ((accurancy[neuron * 4] + accurancy[neuron * 4 + 1]) / 100.0));
-            printf("pred. F\t| %d\t | %d\t  | %5.1f%%\n", accurancy[neuron * 4 + 2], accurancy[neuron * 4 + 3], accurancy[neuron * 4 + 3] / ((accurancy[neuron * 4 + 2] + accurancy[neuron * 4 + 3]) / 100.0));
-            printf("recall\t| %5.1f%% | %5.1f%% \n\n", accurancy[neuron * 4] / ((accurancy[neuron * 4] + accurancy[neuron * 4 + 2]) / 100.0),
-                                          accurancy[neuron * 4 + 3] / ((accurancy[neuron * 4 + 1] + accurancy[neuron * 4 + 3]) / 100.0));
-        }
-    }
+
 
 
     /**
@@ -115,29 +105,7 @@ namespace naive {
         }
     }
 
-    /**
-     * Initialization accurancy array.
-     */
-    void initAccurancy(int *accurancy, int length) {
-        for (int i = 0; i < length; i++) {
-            accurancy[i] = 0;
-        }
-    }
 
-    /**
-     * Finds lowest square error and sets it as the best one.
-     */
-    void findAndSetBestSquareError(NeuralNetwork *neuralNetwork) {
-        neuralNetwork->bestSquareError[0] = 0;
-        neuralNetwork->bestSquareError[1] = neuralNetwork->squareErrorHistory[0];
-
-        for (int i = 1; i <= neuralNetwork->state.epoch; i++) {
-            if (neuralNetwork->squareErrorHistory[i] < neuralNetwork->bestSquareError[1]) {
-                neuralNetwork->bestSquareError[0] = i;
-                neuralNetwork->bestSquareError[1] = neuralNetwork->squareErrorHistory[i];
-            }
-        }
-    }
 
     /**
      * Returns sum of squareErrors
@@ -150,103 +118,7 @@ namespace naive {
         return sum;
     }
 
-    /**
-     * Returns a learning vector for neural network.
-     */
-    bool getLearningVector(NeuralNetwork *neuralNetwork, TaskData *taskData, float *expectedOutput) {
 
-        if (neuralNetwork->state.learningLine >= taskData->totalLearningLines) {
-            return false;
-        }
-        for (int input = 0; input < neuralNetwork->setup.layers[0]; input++) {
-            neuralNetwork->state.values[input] = taskData->learningInputs[input + neuralNetwork->state.learningLine * neuralNetwork->setup.layers[0]];
-        }
-
-        for (int output = 0; output < neuralNetwork->setup.layers[neuralNetwork->setup.numOfLayers - 1]; output++) {
-            expectedOutput[output] = taskData->learningOutputs[output + neuralNetwork->state.learningLine * neuralNetwork->setup.layers[neuralNetwork->setup.numOfLayers - 1]];
-        }
-        neuralNetwork->state.learningLine ++;
-        return true;
-    }
-
-    /**
-     * Returns a test vector for neural network.
-     */
-    bool getTestVector(NeuralNetwork *neuralNetwork, TaskData *taskData, float *expectedOutput) {
-
-        if (neuralNetwork->state.testLine >= taskData->totalTestLines) {
-            return false;
-        }
-        for (int input = 0; input < neuralNetwork->setup.layers[0]; input++) {
-            neuralNetwork->state.values[input] = taskData->testInputs[input + neuralNetwork->state.testLine * neuralNetwork->setup.layers[0]];
-        }
-
-        for (int output = 0; output < neuralNetwork->setup.layers[neuralNetwork->setup.numOfLayers - 1]; output++) {
-            expectedOutput[output] = taskData->testOutputs[output + neuralNetwork->state.testLine * neuralNetwork->setup.layers[neuralNetwork->setup.numOfLayers - 1]];
-        }
-        neuralNetwork->state.testLine ++;
-        return true;
-    }
-
-    /**
-     * Reads and stores input vectors for learning and testing neural network.
-     */
-    void loadInputData(const char* learningFilename, const char* testFilename, NeuralNetwork *neuralNetwork, TaskData *taskData) {
-        std::ifstream learningInput(learningFilename);
-
-        float i1, i2, i3, i4, i5, i6, i7, i8, i9;
-        int o1, o2;
-        int totalLearningLines = std::count(std::istreambuf_iterator<char>(learningInput), std::istreambuf_iterator<char>(), '\n');
-        taskData->totalLearningLines = totalLearningLines;
-        neuralNetwork->state.learningLine = 0;
-        learningInput.seekg(0);
-        // std::cout << totalLearningLines << std::endl;
-        taskData->learningInputs = (float *) malloc (totalLearningLines * neuralNetwork->setup.layers[0] * sizeof(float));
-        taskData->learningOutputs = (float *) malloc (totalLearningLines * neuralNetwork->setup.layers[neuralNetwork->setup.numOfLayers - 1] * sizeof(float));
-        unsigned long int learningInputCounter = 0;
-        unsigned long int learningOutputCounter = 0;
-        while (learningInput >> i1 >> i2 >> i3 >> i4 >> i5 >> i6 >> i7 >> i8 >> i9 >> o1 >> o2)
-        {
-            taskData->learningInputs[learningInputCounter] = i1; learningInputCounter++;
-            taskData->learningInputs[learningInputCounter] = i2; learningInputCounter++;
-            taskData->learningInputs[learningInputCounter] = i3; learningInputCounter++;
-            taskData->learningInputs[learningInputCounter] = i4; learningInputCounter++;
-            taskData->learningInputs[learningInputCounter] = i5; learningInputCounter++;
-            taskData->learningInputs[learningInputCounter] = i6; learningInputCounter++;
-            taskData->learningInputs[learningInputCounter] = i7; learningInputCounter++;
-            taskData->learningInputs[learningInputCounter] = i8; learningInputCounter++;
-            taskData->learningInputs[learningInputCounter] = i9; learningInputCounter++;
-
-            taskData->learningOutputs[learningOutputCounter] = o1; learningOutputCounter++;
-            taskData->learningOutputs[learningOutputCounter] = o2; learningOutputCounter++;
-        }
-
-        std::ifstream testInput(learningFilename);
-        int totalTestLines = std::count(std::istreambuf_iterator<char>(testInput), std::istreambuf_iterator<char>(), '\n');
-        taskData->totalTestLines = totalTestLines;
-        neuralNetwork->state.testLine = 0;
-        testInput.seekg(0);
-        // std::cout << totalTestLines << std::endl;
-        taskData->testInputs = (float *) malloc (totalTestLines * neuralNetwork->setup.layers[0] * sizeof(float));
-        taskData->testOutputs = (float *) malloc (totalTestLines * neuralNetwork->setup.layers[neuralNetwork->setup.numOfLayers - 1] * sizeof(float));
-        unsigned long int testInputCounter = 0;
-        unsigned long int testOutputCounter = 0;
-        while (testInput >> i1 >> i2 >> i3 >> i4 >> i5 >> i6 >> i7 >> i8 >> i9 >> o1 >> o2)
-        {
-            taskData->testInputs[testInputCounter] = i1; testInputCounter++;
-            taskData->testInputs[testInputCounter] = i2; testInputCounter++;
-            taskData->testInputs[testInputCounter] = i3; testInputCounter++;
-            taskData->testInputs[testInputCounter] = i4; testInputCounter++;
-            taskData->testInputs[testInputCounter] = i5; testInputCounter++;
-            taskData->testInputs[testInputCounter] = i6; testInputCounter++;
-            taskData->testInputs[testInputCounter] = i7; testInputCounter++;
-            taskData->testInputs[testInputCounter] = i8; testInputCounter++;
-            taskData->testInputs[testInputCounter] = i9; testInputCounter++;
-
-            taskData->testOutputs[testOutputCounter] = o1; testOutputCounter++;
-            taskData->testOutputs[testOutputCounter] = o2; testOutputCounter++;
-        }
-    }
 
 
     /**
@@ -280,28 +152,6 @@ namespace naive {
         neuralNetwork->state.errors =  (float *) malloc (numOfValues * sizeof(float));
     }
 
-    /**
-     * Frees alocated memory
-     */
-    void deleteNeuralNetwork(NeuralNetwork *neuralNetwork) {
-        free(neuralNetwork->state.weights);
-        free(neuralNetwork->state.values);
-        free(neuralNetwork->state.errors);
-        if (neuralNetwork->setup.classification) {
-            free(neuralNetwork->classificationAccurancyHistory);
-        }
-        free(neuralNetwork->squareErrorHistory);
-    }
-
-    /**
-     * Frees alocated memory
-     */
-    void deleteTaskData(TaskData *taskData) {
-        free(taskData->learningInputs);
-        free(taskData->learningOutputs);
-        free(taskData->testInputs);
-        free(taskData->testOutputs);
-    }
 
     /**
      * Performs a learning cycle of neural network. Input vector is transformed to output vector.
@@ -509,7 +359,7 @@ namespace naive {
     /**
      * Performs trainign and testing of neural network.
      */
-    void runNaiveNeuralNetwork(float learningFactor) {
+    void runOptimizedNeuralNetwork(float learningFactor) {
         NeuralNetwork neuralNetwork;
         TaskData taskData;
 
