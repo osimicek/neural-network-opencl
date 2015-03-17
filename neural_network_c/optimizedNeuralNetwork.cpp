@@ -173,7 +173,7 @@ namespace optimized {
 
         // foward value computation
         #if USE_PAPI_LEARN_DETAIL
-        (*papi_routines)["network_learning_foward_computation"].Start();
+        (*papi_routines)["o_network_learning_foward_computation"].Start();
         #endif
         for (int layer = 1; layer < numOfLayers; layer++) {
             int neurons = layers[layer];
@@ -191,12 +191,12 @@ namespace optimized {
             prevValueOffset += prevNeurons;
         }
         #if USE_PAPI_LEARN_DETAIL
-        (*papi_routines)["network_learning_foward_computation"].Stop();
+        (*papi_routines)["o_network_learning_foward_computation"].Stop();
         #endif
 
         // backwards error computation
         #if USE_PAPI_LEARN_DETAIL
-        (*papi_routines)["network_learning_error_computation"].Start();
+        (*papi_routines)["o_network_learning_error_computation"].Start();
         #endif
         for (int neuron = 0; neuron < layers[numOfLayers - 1]; neuron++) {
             float value = values[neuron + valueOffset];
@@ -238,12 +238,12 @@ namespace optimized {
             followValueOffset -= neurons;
         }
         #if USE_PAPI_LEARN_DETAIL
-        (*papi_routines)["network_learning_error_computation"].Stop();
+        (*papi_routines)["o_network_learning_error_computation"].Stop();
         #endif
         // printNeuralNetwork(neuralNetwork, expectedOutput);
         // error propagation
         #if USE_PAPI_LEARN_DETAIL
-        (*papi_routines)["network_learning_weight_update"].Start();
+        (*papi_routines)["o_network_learning_weight_update"].Start();
         #endif
         weightOffset = 0;
         valueOffset = 0;
@@ -262,7 +262,7 @@ namespace optimized {
             valueOffset += prevNeurons;
         }
         #if USE_PAPI_LEARN_DETAIL
-        (*papi_routines)["network_learning_weight_update"].Stop();
+        (*papi_routines)["o_network_learning_weight_update"].Stop();
         #endif
 
         // printNeuralNetwork(neuralNetwork, expectedOutput);
@@ -288,7 +288,7 @@ namespace optimized {
 
         // foward value computation
         #if USE_PAPI_LEARN_DETAIL
-        (*papi_routines)["network_testing_foward_computation"].Start();
+        (*papi_routines)["o_network_testing_foward_computation"].Start();
         #endif
         for (int layer = 1; layer < numOfLayers; layer++) {
             int neurons = layers[layer];
@@ -307,13 +307,13 @@ namespace optimized {
         }
 
         #if USE_PAPI_LEARN_DETAIL
-        (*papi_routines)["network_testing_foward_computation"].Stop();
+        (*papi_routines)["o_network_testing_foward_computation"].Stop();
         #endif
 
 
         // error computation backwards
         #if USE_PAPI_LEARN_DETAIL
-        (*papi_routines)["network_testing_error_computation"].Start();
+        (*papi_routines)["o_network_testing_error_computation"].Start();
         #endif
         int numOfOutputNeurons = layers[numOfLayers - 1];
         for (int neuron = 0; neuron < numOfOutputNeurons; neuron++) {
@@ -353,7 +353,7 @@ namespace optimized {
             }
         }
         #if USE_PAPI_LEARN_DETAIL
-        (*papi_routines)["network_testing_error_computation"].Stop();
+        (*papi_routines)["o_network_testing_error_computation"].Stop();
         #endif 
     }
 
@@ -390,13 +390,13 @@ namespace optimized {
              * Learning
              */
             #if USE_PAPI_LEARN_AND_TEST
-            (*papi_routines)["network_learning"].Start();
+            (*papi_routines)["o_network_learning"].Start();
             #endif
             while (getLearningVector(&neuralNetwork, &taskData, expectedOutput)) {
                 neuralLearnCycle(&neuralNetwork, expectedOutput);
             }
             #if USE_PAPI_LEARN_AND_TEST
-            (*papi_routines)["network_learning"].Stop();
+            (*papi_routines)["o_network_learning"].Stop();
             #endif
 
             /**
@@ -404,13 +404,13 @@ namespace optimized {
              */
             neuralNetwork.currentSquareErrorCounter = 0.0f;
             #if USE_PAPI_LEARN_AND_TEST
-            (*papi_routines)["network_testing"].Start();
+            (*papi_routines)["o_network_testing"].Start();
             #endif
             while (getTestVector(&neuralNetwork, &taskData, expectedOutput)) {
                 neuralTestCycle(&neuralNetwork, expectedOutput);
             }
             #if USE_PAPI_LEARN_AND_TEST
-            (*papi_routines)["network_testing"].Stop();
+            (*papi_routines)["o_network_testing"].Stop();
             #endif
 
             neuralNetwork.squareErrorHistory[neuralNetwork.state.epoch] = (neuralNetwork.setup.maxOutputValue - neuralNetwork.setup.minOutputValue) * neuralNetwork.currentSquareErrorCounter/ (neuralNetwork.setup.layers[neuralNetwork.setup.numOfLayers - 1] * taskData.totalTestLines);
