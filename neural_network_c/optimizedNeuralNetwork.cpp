@@ -222,18 +222,19 @@ namespace optimized {
             int neurons = layers[layer];
             int followNeurons = layers[layer + 1];
             valueOffset -= neurons;
-            // std::cout << "---" << std::endl;
-            for (int neuron = neurons - 1; neuron >= 0; neuron--) {
+            weightOffset -= neurons * followNeurons;
+            for (int neuron = 0; neuron < neurons; neuron++) {
                 float weightError = 0.f;
-                weightOffset -= followNeurons;
                 for (int followNeuron = 0; followNeuron < followNeurons; followNeuron++) {
                     weightError += errors[followNeuron + followValueOffset] *
                                   weights[followNeuron + weightOffset];
                 }
+                weightOffset += followNeurons;
                 float value = values[neuron + valueOffset];
                 float ex = exp(-neuralNetwork->setup.lambda*value);
                 errors[neuron + valueOffset] = weightError * (ex * (1 - ex));
             }
+            weightOffset -= neurons * followNeurons;
             followValueOffset -= neurons;
         }
         #if USE_PAPI_LEARN_DETAIL
