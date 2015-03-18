@@ -381,7 +381,7 @@ namespace optimized {
 
         float *expectedOutput =  (float *) malloc (neuralNetwork.setup.layers[neuralNetwork.setup.numOfLayers - 1] * sizeof(float));
 
-        loadInputData("cancerL.dt", "cancerT.dt", &neuralNetwork, &taskData);
+        loadInputData("cancer.dt", &neuralNetwork, &taskData);
         float generalizationLoss, progress;
         for (neuralNetwork.state.epoch = 0; neuralNetwork.state.epoch < neuralNetwork.criteria.maxEpochs; neuralNetwork.state.epoch++) {
             neuralNetwork.state.learningLine = 0;

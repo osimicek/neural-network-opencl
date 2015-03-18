@@ -191,61 +191,58 @@ namespace naive {
     /**
      * Reads and stores input vectors for learning and testing neural network.
      */
-    void loadInputData(const char* learningFilename, const char* testFilename, NeuralNetwork *neuralNetwork, TaskData *taskData) {
-        std::ifstream learningInput(learningFilename);
+    void loadInputData(const char* filename, NeuralNetwork *neuralNetwork, TaskData *taskData) {
+        std::ifstream input(filename);
+        std::cout << "START " << std::flush;
+        
+        int inputVectorSize, outputVectorSize, totalLearningLines, totalTestLines;
+        input >> inputVectorSize;
+        input >> outputVectorSize;
+        input >> totalLearningLines;
+        input >> totalTestLines;
 
-        float i1, i2, i3, i4, i5, i6, i7, i8, i9;
-        int o1, o2;
-        int totalLearningLines = std::count(std::istreambuf_iterator<char>(learningInput), std::istreambuf_iterator<char>(), '\n');
-        taskData->totalLearningLines = totalLearningLines;
-        neuralNetwork->state.learningLine = 0;
-        learningInput.seekg(0);
-        // std::cout << totalLearningLines << std::endl;
-        taskData->learningInputs = (float *) malloc (totalLearningLines * neuralNetwork->setup.layers[0] * sizeof(float));
-        taskData->learningOutputs = (float *) malloc (totalLearningLines * neuralNetwork->setup.layers[neuralNetwork->setup.numOfLayers - 1] * sizeof(float));
+        neuralNetwork->setup.layers[0] = inputVectorSize;
+        neuralNetwork->setup.layers[neuralNetwork->setup.numOfLayers - 1] = outputVectorSize;
+        std::cout << inputVectorSize << " " << outputVectorSize << " " << totalLearningLines << " " << totalTestLines<< std::endl<<std::flush;
+        float value;
         unsigned long int learningInputCounter = 0;
         unsigned long int learningOutputCounter = 0;
-        while (learningInput >> i1 >> i2 >> i3 >> i4 >> i5 >> i6 >> i7 >> i8 >> i9 >> o1 >> o2)
-        {
-            taskData->learningInputs[learningInputCounter] = i1; learningInputCounter++;
-            taskData->learningInputs[learningInputCounter] = i2; learningInputCounter++;
-            taskData->learningInputs[learningInputCounter] = i3; learningInputCounter++;
-            taskData->learningInputs[learningInputCounter] = i4; learningInputCounter++;
-            taskData->learningInputs[learningInputCounter] = i5; learningInputCounter++;
-            taskData->learningInputs[learningInputCounter] = i6; learningInputCounter++;
-            taskData->learningInputs[learningInputCounter] = i7; learningInputCounter++;
-            taskData->learningInputs[learningInputCounter] = i8; learningInputCounter++;
-            taskData->learningInputs[learningInputCounter] = i9; learningInputCounter++;
+        taskData->learningInputs = (float *) malloc (totalLearningLines * inputVectorSize * sizeof(float));
+        taskData->learningOutputs = (float *) malloc (totalLearningLines * outputVectorSize * sizeof(float));
+        for (unsigned int row = 0; row < totalLearningLines; row++) {
+            for (unsigned int inputCol = 0; inputCol < inputVectorSize; inputCol++) {
+                input >> value;
+                taskData->learningInputs[learningInputCounter] = value;
+                learningInputCounter++;
+            }
 
-            taskData->learningOutputs[learningOutputCounter] = o1; learningOutputCounter++;
-            taskData->learningOutputs[learningOutputCounter] = o2; learningOutputCounter++;
+            for (unsigned int outputCol = 0; outputCol < outputVectorSize; outputCol++) {
+                input >> value;
+                taskData->learningOutputs[learningOutputCounter] = value;
+                learningOutputCounter++;
+            }
         }
 
-        std::ifstream testInput(learningFilename);
-        int totalTestLines = std::count(std::istreambuf_iterator<char>(testInput), std::istreambuf_iterator<char>(), '\n');
-        taskData->totalTestLines = totalTestLines;
-        neuralNetwork->state.testLine = 0;
-        testInput.seekg(0);
-        // std::cout << totalTestLines << std::endl;
-        taskData->testInputs = (float *) malloc (totalTestLines * neuralNetwork->setup.layers[0] * sizeof(float));
-        taskData->testOutputs = (float *) malloc (totalTestLines * neuralNetwork->setup.layers[neuralNetwork->setup.numOfLayers - 1] * sizeof(float));
         unsigned long int testInputCounter = 0;
         unsigned long int testOutputCounter = 0;
-        while (testInput >> i1 >> i2 >> i3 >> i4 >> i5 >> i6 >> i7 >> i8 >> i9 >> o1 >> o2)
-        {
-            taskData->testInputs[testInputCounter] = i1; testInputCounter++;
-            taskData->testInputs[testInputCounter] = i2; testInputCounter++;
-            taskData->testInputs[testInputCounter] = i3; testInputCounter++;
-            taskData->testInputs[testInputCounter] = i4; testInputCounter++;
-            taskData->testInputs[testInputCounter] = i5; testInputCounter++;
-            taskData->testInputs[testInputCounter] = i6; testInputCounter++;
-            taskData->testInputs[testInputCounter] = i7; testInputCounter++;
-            taskData->testInputs[testInputCounter] = i8; testInputCounter++;
-            taskData->testInputs[testInputCounter] = i9; testInputCounter++;
+        taskData->testInputs = (float *) malloc (totalTestLines * inputVectorSize * sizeof(float));
+        taskData->testOutputs = (float *) malloc (totalTestLines * outputVectorSize * sizeof(float));
+        for (unsigned int row = 0; row < totalTestLines; row++) {
+            for (unsigned int inputCol = 0; inputCol < inputVectorSize; inputCol++) {
+                input >> value;
+                taskData->testInputs[testInputCounter] = value;
+                testInputCounter++;
+            }
 
-            taskData->testOutputs[testOutputCounter] = o1; testOutputCounter++;
-            taskData->testOutputs[testOutputCounter] = o2; testOutputCounter++;
+            for (unsigned int outputCol = 0; outputCol < outputVectorSize; outputCol++) {
+                input >> value;
+                taskData->testOutputs[testOutputCounter] = value;
+                testOutputCounter++;
+            }
         }
+
+        taskData->totalLearningLines = totalLearningLines;
+        taskData->totalTestLines = totalTestLines;
     }
 
 
@@ -531,7 +528,7 @@ namespace naive {
 
         float *expectedOutput =  (float *) malloc (neuralNetwork.setup.layers[neuralNetwork.setup.numOfLayers - 1] * sizeof(float));
 
-        loadInputData("cancerL.dt", "cancerT.dt", &neuralNetwork, &taskData);
+        loadInputData("cancer.dt", &neuralNetwork, &taskData);
         float generalizationLoss, progress;
         for (neuralNetwork.state.epoch = 0; neuralNetwork.state.epoch < neuralNetwork.criteria.maxEpochs; neuralNetwork.state.epoch++) {
             neuralNetwork.state.learningLine = 0;
