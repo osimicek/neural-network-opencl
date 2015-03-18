@@ -470,27 +470,26 @@ namespace naive {
 
             if (neuralNetwork->setup.classification) {
                 // conversion to bool
-                int boolValue = round(value);
-                diff = expectedOutput[neuron] - value;
+                int classValue = round(value);
                 // neuralNetwork->currentSquareErrorCounter += diff * diff; 
 
                 int pos = 4 * neuron + 4 * numOfOutputNeurons * neuralNetwork->state.epoch;
-                if (boolValue == 1 && expectedOutput[neuron] == 1) {
+                if (classValue == 1 && expectedOutput[neuron] == 1) {
                     // true positive
                     neuralNetwork->classificationAccurancyHistory[pos] += 1;
-                } else if (boolValue == 1 && expectedOutput[neuron] == 0) {
+                } else if (classValue == 1 && expectedOutput[neuron] == 0) {
                     // true negative
                     // diff = expectedOutput[neuron] - value;
                     neuralNetwork->currentSquareErrorCounter += 1; 
 
                     neuralNetwork->classificationAccurancyHistory[pos + 1] += 1;
-                } else if (boolValue == 0 && expectedOutput[neuron] == 1) {
+                } else if (classValue == 0 && expectedOutput[neuron] == 1) {
                     // false negative
                     // diff = expectedOutput[neuron] - value;
                     neuralNetwork->currentSquareErrorCounter += 1; 
 
                     neuralNetwork->classificationAccurancyHistory[pos + 2] += 1;
-                } else if (boolValue == 0 && expectedOutput[neuron] == 0) {
+                } else if (classValue == 0 && expectedOutput[neuron] == 0) {
                     // false positive
                     neuralNetwork->classificationAccurancyHistory[pos + 3] += 1; 
                 }
@@ -562,7 +561,7 @@ namespace naive {
 
             neuralNetwork.squareErrorHistory[neuralNetwork.state.epoch] = (neuralNetwork.setup.maxOutputValue - neuralNetwork.setup.minOutputValue) * neuralNetwork.currentSquareErrorCounter/ (neuralNetwork.setup.layers[neuralNetwork.setup.numOfLayers - 1] * taskData.totalTestLines);
             findAndSetBestSquareError(&neuralNetwork);
-            // std::cout << neuralNetwork.squareErrorHistory[neuralNetwork.state.epoch] << std::endl;
+            // std::cout << neuralTestCycleNetwork.squareErrorHistory[neuralNetwork.state.epoch] << std::endl;
             if (neuralNetwork.state.epoch > 0) {
                 generalizationLoss = neuralNetwork.squareErrorHistory[neuralNetwork.state.epoch] / neuralNetwork.bestSquareError[1] - 1;
                 progress = squareErrorSum(&neuralNetwork) / ((neuralNetwork.state.epoch + 1) * neuralNetwork.bestSquareError[1]) - 1;
@@ -573,7 +572,7 @@ namespace naive {
             // std::cout << neuralNetwork.squareErrorHistory[neuralNetwork.state.epoch] << "  "<< neuralNetwork.bestSquareError[1]<< "\t"<< generalizationLoss << "\t\t"<< progress<< std::endl;
         }
         neuralNetwork.state.epoch--;
-        printf("END Learn: %f Epochs: %f Best avg err %f\n", neuralNetwork.setup.learningFactor, neuralNetwork.bestSquareError[0], neuralNetwork.bestSquareError[1]);
+        printf("NN RESULT: Best avg err: %f Epochs: %f Learn factor: %f \n", neuralNetwork.bestSquareError[1], neuralNetwork.bestSquareError[0], neuralNetwork.setup.learningFactor);
         printClassificationAccurancy(&(neuralNetwork.classificationAccurancyHistory[4 * neuralNetwork.setup.layers[neuralNetwork.setup.numOfLayers - 1] * neuralNetwork.state.epoch]), neuralNetwork.setup.layers[neuralNetwork.setup.numOfLayers - 1]);
 
         deleteNeuralNetwork(&neuralNetwork);

@@ -9,6 +9,7 @@
 #include "optimizedNeuralNetwork.h"
 using namespace naive;
 
+#define SHOW_CLASSIFICATION_ACCURANCY 0
 namespace optimized {
     /**
      * Prints
@@ -133,12 +134,13 @@ namespace optimized {
         neuralNetwork->state.weights = (float *) malloc (numOfWeights * sizeof(float));
         initWeights(neuralNetwork->state.weights, numOfWeights);
 
+        #if SHOW_CLASSIFICATION_ACCURANCY
         int classificationAccurancyLength = 4 * neuralNetwork->setup.layers[neuralNetwork->setup.numOfLayers - 1] * neuralNetwork->criteria.maxEpochs;
         if (neuralNetwork->setup.classification) {
             neuralNetwork->classificationAccurancyHistory = (int *) malloc (classificationAccurancyLength * sizeof(int));
         }
         initAccurancy(neuralNetwork->classificationAccurancyHistory, classificationAccurancyLength);
-
+        #endif
         neuralNetwork->squareErrorHistory = (float *) malloc (2 * neuralNetwork->setup.layers[neuralNetwork->setup.numOfLayers - 1] * neuralNetwork->criteria.maxEpochs * sizeof(int));
         neuralNetwork->bestSquareError[0] = -1.f;
         neuralNetwork->bestSquareError[1] = -1.f;
@@ -150,6 +152,21 @@ namespace optimized {
         }
         neuralNetwork->state.values =  (float *) malloc (numOfValues * sizeof(float));
         neuralNetwork->state.errors =  (float *) malloc (numOfValues * sizeof(float));
+    }
+
+    /**
+     * Frees alocated memory
+     */
+    void deleteNeuralNetwork(NeuralNetwork *neuralNetwork) {
+        free(neuralNetwork->state.weights);
+        free(neuralNetwork->state.values);
+        free(neuralNetwork->state.errors);
+        #if SHOW_CLASSIFICATION_ACCURANCY
+        if (neuralNetwork->setup.classification) {
+            free(neuralNetwork->classificationAccurancyHistory);
+        }
+        #endif
+        free(neuralNetwork->squareErrorHistory);
     }
 
 
@@ -320,37 +337,42 @@ namespace optimized {
             float value = values[neuron + valueOffset];
             float diff;
             
-
             if (neuralNetwork->setup.classification) {
                 // conversion to bool
-                int boolValue = round(value);
-                diff = expectedOutput[neuron] - value;
+                int classValue = round(value);
+                #if !SHOW_CLASSIFICATION_ACCURANCY
+                if (classValue != expectedOutput[neuron]) {
+                    neuralNetwork->currentSquareErrorCounter += 1;
+                }
+                #endif
                 // neuralNetwork->currentSquareErrorCounter += diff * diff; 
-
+                #if SHOW_CLASSIFICATION_ACCURANCY
                 int pos = 4 * neuron + 4 * numOfOutputNeurons * neuralNetwork->state.epoch;
-                if (boolValue == 1 && expectedOutput[neuron] == 1) {
+                if (classValue == 1 && expectedOutput[neuron] == 1.f) {
                     // true positive
                     neuralNetwork->classificationAccurancyHistory[pos] += 1;
-                } else if (boolValue == 1 && expectedOutput[neuron] == 0) {
+                } else if (classValue == 1 && expectedOutput[neuron] == 0.f) {
                     // true negative
                     // diff = expectedOutput[neuron] - value;
-                    neuralNetwork->currentSquareErrorCounter += 1; 
+                    neuralNetwork->currentSquareErrorCounter += 1;
 
                     neuralNetwork->classificationAccurancyHistory[pos + 1] += 1;
-                } else if (boolValue == 0 && expectedOutput[neuron] == 1) {
+                } else if (classValue == 0 && expectedOutput[neuron] == 1.f) {
                     // false negative
                     // diff = expectedOutput[neuron] - value;
-                    neuralNetwork->currentSquareErrorCounter += 1; 
+                    neuralNetwork->currentSquareErrorCounter += 1;
 
                     neuralNetwork->classificationAccurancyHistory[pos + 2] += 1;
-                } else if (boolValue == 0 && expectedOutput[neuron] == 0) {
+                } else if (classValue == 0 && expectedOutput[neuron] == 0.f) {
                     // false positive
                     neuralNetwork->classificationAccurancyHistory[pos + 3] += 1; 
                 }
+                #endif
             } else {
                 diff = expectedOutput[neuron] - value;
                 neuralNetwork->currentSquareErrorCounter += diff * diff; 
             }
+            
         }
         #if USE_PAPI_LEARN_DETAIL
         (*papi_routines)["o_network_testing_error_computation"].Stop();
@@ -423,11 +445,14 @@ namespace optimized {
                     // break;
                 }
             }
-            // std::cout << neuralNetwork.squareErrorHistory[neuralNetwork.state.epoch] << "  "<< neuralNetwork.bestSquareError[1]<< "\t"<< generalizationLoss << "\t\t"<< progress<< std::endl;
+            std::cout << neuralNetwork.squareErrorHistory[neuralNetwork.state.epoch] << "  "<< neuralNetwork.bestSquareError[1]<< "\t"<< generalizationLoss << "\t\t"<< progress<< std::endl;
         }
         neuralNetwork.state.epoch--;
-        printf("END Learn: %f Epochs: %f Best avg err %f\n", neuralNetwork.setup.learningFactor, neuralNetwork.bestSquareError[0], neuralNetwork.bestSquareError[1]);
+        printf("NN RESULT: Best avg err: %f Epochs: %f Learn factor: %f \n", neuralNetwork.bestSquareError[1], neuralNetwork.bestSquareError[0], neuralNetwork.setup.learningFactor);
+        
+        #if SHOW_CLASSIFICATION_ACCURANCY
         printClassificationAccurancy(&(neuralNetwork.classificationAccurancyHistory[4 * neuralNetwork.setup.layers[neuralNetwork.setup.numOfLayers - 1] * neuralNetwork.state.epoch]), neuralNetwork.setup.layers[neuralNetwork.setup.numOfLayers - 1]);
+        #endif
 
         deleteNeuralNetwork(&neuralNetwork);
         deleteTaskData(&taskData);

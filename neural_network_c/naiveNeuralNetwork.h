@@ -52,7 +52,6 @@ namespace naive {
     bool getLearningVector(NeuralNetwork *neuralNetwork, TaskData *taskData, float *expectedOutput);
     bool getTestVector(NeuralNetwork *neuralNetwork, TaskData *taskData, float *expectedOutput);
     void loadInputData(const char* filename, NeuralNetwork *neuralNetwork, TaskData *taskData);
-    void deleteNeuralNetwork(NeuralNetwork *neuralNetwork);
     void deleteTaskData(TaskData *taskData);
 }
 #endif
