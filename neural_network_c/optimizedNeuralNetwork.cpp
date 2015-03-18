@@ -445,7 +445,7 @@ namespace optimized {
                     // break;
                 }
             }
-            std::cout << neuralNetwork.squareErrorHistory[neuralNetwork.state.epoch] << "  "<< neuralNetwork.bestSquareError[1]<< "\t"<< generalizationLoss << "\t\t"<< progress<< std::endl;
+            // std::cout << neuralNetwork.squareErrorHistory[neuralNetwork.state.epoch] << "  "<< neuralNetwork.bestSquareError[1]<< "\t"<< generalizationLoss << "\t\t"<< progress<< std::endl;
         }
         neuralNetwork.state.epoch--;
         printf("NN RESULT: Best avg err: %f Epochs: %f Learn factor: %f \n", neuralNetwork.bestSquareError[1], neuralNetwork.bestSquareError[0], neuralNetwork.setup.learningFactor);

@@ -193,7 +193,6 @@ namespace naive {
      */
     void loadInputData(const char* filename, NeuralNetwork *neuralNetwork, TaskData *taskData) {
         std::ifstream input(filename);
-        std::cout << "START " << std::flush;
         
         int inputVectorSize, outputVectorSize, totalLearningLines, totalTestLines;
         input >> inputVectorSize;
@@ -203,7 +202,6 @@ namespace naive {
 
         neuralNetwork->setup.layers[0] = inputVectorSize;
         neuralNetwork->setup.layers[neuralNetwork->setup.numOfLayers - 1] = outputVectorSize;
-        std::cout << inputVectorSize << " " << outputVectorSize << " " << totalLearningLines << " " << totalTestLines<< std::endl<<std::flush;
         float value;
         unsigned long int learningInputCounter = 0;
         unsigned long int learningOutputCounter = 0;
