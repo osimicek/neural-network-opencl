@@ -107,7 +107,7 @@ namespace optimized {
     void initWeights(float *weights, int length) {
         srand(37);
         for (int i = 0; i < length; i++) {
-            weights[i] = rand() % 4 + 1;
+            weights[i] = (rand() % 100 + 1) / 100.f;
         }
     }
 
@@ -387,40 +387,27 @@ namespace optimized {
     /**
      * Performs trainign and testing of neural network.
      */
-    void runOptimizedNeuralNetwork(float learningFactor) {
-        NeuralNetwork neuralNetwork;
+    void runOptimizedNeuralNetwork(NeuralNetwork *neuralNetwork, const char* taskFilename) {
         TaskData taskData;
 
-        neuralNetwork.setup.classification = true;
-        neuralNetwork.setup.lambda = 1.f;
-        neuralNetwork.setup.learningFactor = learningFactor;
-        neuralNetwork.setup.numOfLayers = 4;
-        int tmpLayers[] = {9, 9, 9, 2};
-        neuralNetwork.setup.layers = tmpLayers;
+        loadInputData(taskFilename, neuralNetwork, &taskData);
+        initNeuralNetwork(neuralNetwork);
 
         float *expectedOutput =  (float *) _mm_malloc(neuralNetwork->setup.layers[neuralNetwork->setup.numOfLayers - 1] * sizeof(float), MEMORY_ALIGN);
-        neuralNetwork.setup.minOutputValue = 0.f;
-        neuralNetwork.setup.maxOutputValue = 1.f;
-        neuralNetwork.criteria.maxEpochs = 25;
-        neuralNetwork.criteria.minProgress = 5.0f;
-        neuralNetwork.criteria.maxGeneralizationLoss = 4.0f;
 
-        initNeuralNetwork(&neuralNetwork);
-
-
-        loadInputData("cancer.dt", &neuralNetwork, &taskData);
+        
         float generalizationLoss, progress;
-        for (neuralNetwork.state.epoch = 0; neuralNetwork.state.epoch < neuralNetwork.criteria.maxEpochs; neuralNetwork.state.epoch++) {
-            neuralNetwork.state.learningLine = 0;
-            neuralNetwork.state.testLine = 0;
+        for (neuralNetwork->state.epoch = 0; neuralNetwork->state.epoch < neuralNetwork->criteria.maxEpochs; neuralNetwork->state.epoch++) {
+            neuralNetwork->state.learningLine = 0;
+            neuralNetwork->state.testLine = 0;
             /**
              * Learning
              */
             #if USE_PAPI_LEARN_AND_TEST
             (*papi_routines)["o_network_learning"].Start();
             #endif
-            while (getLearningVector(&neuralNetwork, &taskData, expectedOutput)) {
-                neuralLearnCycle(&neuralNetwork, expectedOutput);
+            while (getLearningVector(neuralNetwork, &taskData, expectedOutput)) {
+                neuralLearnCycle(neuralNetwork, expectedOutput);
             }
             #if USE_PAPI_LEARN_AND_TEST
             (*papi_routines)["o_network_learning"].Stop();
@@ -429,37 +416,37 @@ namespace optimized {
             /**
              * Testing
              */
-            neuralNetwork.currentSquareErrorCounter = 0.0f;
+            neuralNetwork->currentSquareErrorCounter = 0.0f;
             #if USE_PAPI_LEARN_AND_TEST
             (*papi_routines)["o_network_testing"].Start();
             #endif
-            while (getTestVector(&neuralNetwork, &taskData, expectedOutput)) {
-                neuralTestCycle(&neuralNetwork, expectedOutput);
+            while (getTestVector(neuralNetwork, &taskData, expectedOutput)) {
+                neuralTestCycle(neuralNetwork, expectedOutput);
             }
             #if USE_PAPI_LEARN_AND_TEST
             (*papi_routines)["o_network_testing"].Stop();
             #endif
 
-            neuralNetwork.squareErrorHistory[neuralNetwork.state.epoch] = (neuralNetwork.setup.maxOutputValue - neuralNetwork.setup.minOutputValue) * neuralNetwork.currentSquareErrorCounter/ (neuralNetwork.setup.layers[neuralNetwork.setup.numOfLayers - 1] * taskData.totalTestLines);
-            findAndSetBestSquareError(&neuralNetwork);
-            // std::cout << neuralNetwork.squareErrorHistory[neuralNetwork.state.epoch] << std::endl;
-            if (neuralNetwork.state.epoch > 0) {
-                generalizationLoss = neuralNetwork.squareErrorHistory[neuralNetwork.state.epoch] / neuralNetwork.bestSquareError[1] - 1;
-                progress = squareErrorSum(&neuralNetwork) / ((neuralNetwork.state.epoch + 1) * neuralNetwork.bestSquareError[1]) - 1;
-                if (generalizationLoss > neuralNetwork.criteria.maxGeneralizationLoss || progress < neuralNetwork.criteria.minProgress) {
+            neuralNetwork->squareErrorHistory[neuralNetwork->state.epoch] = (neuralNetwork->setup.maxOutputValue - neuralNetwork->setup.minOutputValue) * neuralNetwork->currentSquareErrorCounter/ (neuralNetwork->setup.layers[neuralNetwork->setup.numOfLayers - 1] * taskData.totalTestLines);
+            findAndSetBestSquareError(neuralNetwork);
+            // std::cout << neuralNetwork->squareErrorHistory[neuralNetwork->state.epoch] << std::endl;
+            if (neuralNetwork->state.epoch > 0) {
+                generalizationLoss = neuralNetwork->squareErrorHistory[neuralNetwork->state.epoch] / neuralNetwork->bestSquareError[1] - 1;
+                progress = squareErrorSum(neuralNetwork) / ((neuralNetwork->state.epoch + 1) * neuralNetwork->bestSquareError[1]) - 1;
+                if (generalizationLoss > neuralNetwork->criteria.maxGeneralizationLoss || progress < neuralNetwork->criteria.minProgress) {
                     // break;
                 }
             }
-            // std::cout << neuralNetwork.squareErrorHistory[neuralNetwork.state.epoch] << "  "<< neuralNetwork.bestSquareError[1]<< "\t"<< generalizationLoss << "\t\t"<< progress<< std::endl;
+            // std::cout << neuralNetwork->squareErrorHistory[neuralNetwork->state.epoch] << "  "<< neuralNetwork->bestSquareError[1]<< "\t"<< generalizationLoss << "\t\t"<< progress<< std::endl;
         }
-        neuralNetwork.state.epoch--;
-        printf("NN RESULT: Best avg err: %f Epochs: %f Learn factor: %f \n", neuralNetwork.bestSquareError[1], neuralNetwork.bestSquareError[0], neuralNetwork.setup.learningFactor);
+        neuralNetwork->state.epoch--;
+        printf("NN RESULT: Best avg err: %f Epochs: %f Learn factor: %f \n", neuralNetwork->bestSquareError[1], neuralNetwork->bestSquareError[0], neuralNetwork->setup.learningFactor);
         
         #if SHOW_CLASSIFICATION_ACCURANCY
-        printClassificationAccurancy(&(neuralNetwork.classificationAccurancyHistory[4 * neuralNetwork.setup.layers[neuralNetwork.setup.numOfLayers - 1] * neuralNetwork.state.epoch]), neuralNetwork.setup.layers[neuralNetwork.setup.numOfLayers - 1]);
+        printClassificationAccurancy(&(neuralNetwork->classificationAccurancyHistory[4 * neuralNetwork->setup.layers[neuralNetwork->setup.numOfLayers - 1] * neuralNetwork->state.epoch]), neuralNetwork->setup.layers[neuralNetwork->setup.numOfLayers - 1]);
         #endif
 
-        deleteNeuralNetwork(&neuralNetwork);
+        deleteNeuralNetwork(neuralNetwork);
         deleteTaskData(&taskData);
         free(expectedOutput);
     }

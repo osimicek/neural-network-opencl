@@ -43,7 +43,7 @@ struct NeuralNetwork {
     int *classificationAccurancyHistory;
 };
 namespace naive {
-    void runNaiveNeuralNetwork(float learningFactor);
+    void runNaiveNeuralNetwork(NeuralNetwork *neuralNetwork, const char* taskFilename);
     void printClassificationAccurancy(int *accurancy, int numOfNeurons);
     void initAccurancy(int *accurancy, int length);
     void findAndSetBestSquareError(NeuralNetwork *neuralNetwork);
