@@ -1,6 +1,5 @@
 CC= g++
 CPPFLAGS += -O3
-REPORT=
 
 PAPI_EVENTS_F=PAPI_FP_OPS|PAPI_TOT_CYC|PAPI_TOT_INS
 PAPI_EVENTS_M=PAPI_L1_DCA|PAPI_L1_DCM|PAPI_L2_DCA|PAPI_L2_DCM
@@ -29,10 +28,10 @@ clean:
 	rm -f *.o main
 
 run:
-	PAPI_EVENTS='$(PAPI_EVENTS_F)' ./main
+	PAPI_EVENTS='$(PAPI_EVENTS_F)' ./main $(arg)
 runm:
-	PAPI_EVENTS='$(PAPI_EVENTS_M)' ./main
+	PAPI_EVENTS='$(PAPI_EVENTS_M)' ./main $(arg)
 runm2:
-	PAPI_EVENTS='$(PAPI_EVENTS_M2)' ./main
+	PAPI_EVENTS='$(PAPI_EVENTS_M2)' ./main $(arg)
 runintel:
-	PAPI_EVENTS='$(PAPI_EVENTS_M_INTEL)' ./main
+	PAPI_EVENTS='$(PAPI_EVENTS_M_INTEL)' ./main $(arg)

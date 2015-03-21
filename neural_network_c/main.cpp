@@ -4,6 +4,13 @@
 
 int main(int argc, char **argv)
 {   
+    char *filename;
+    if (argc < 2) {
+        const char *default_filename = "./data/cancer.dt";
+        filename = (char *) default_filename;
+    } else {
+        filename = argv[1];
+    }
     #if USE_PAPI_LEARN_AND_TEST || USE_PAPI_LEARN_DETAIL || USE_PAPI_TEST_DETAIL
     initPapi();
     #endif
