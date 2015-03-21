@@ -11,21 +11,24 @@ experiment_obj := naiveNeuralNetwork.o \
 papi_obj := papi_cntr.o\
 			initPapi.o
 
-all: $(experiment_obj) main.o
+all: join_files $(experiment_obj) main.o
 	$(CC) $(experiment_obj) main.o -o main $(CPPFLAGS) $(OPT)
 
-papi1: papi1setflags $(papi_obj) all
-papi1setflags:
+papi1: papi1_set_flags $(papi_obj) all
+papi1_set_flags:
 	$(eval experiment_obj = $(papi_obj) $(experiment_obj))
 	$(eval CPPFLAGS += -lpapi -L/usr/local/lib64 -DUSE_PAPI_LEARN_AND_TEST=1)
 
-papi2: papi2setflags $(papi_obj) all
-papi2setflags:
+papi2: papi2_set_flags $(papi_obj) all
+papi2_set_flags:
 	$(eval experiment_obj = $(papi_obj) $(experiment_obj))
 	$(eval CPPFLAGS += -lpapi -L/usr/local/lib64 -DUSE_PAPI_LEARN_DETAIL -DUSE_PAPI_TEST_DETAIL)
 
 clean:
 	rm -f *.o main
+
+join_files:
+	cat data/mnist_part_* > data/mnist.dt
 
 run:
 	PAPI_EVENTS='$(PAPI_EVENTS_F)' ./main $(arg)
