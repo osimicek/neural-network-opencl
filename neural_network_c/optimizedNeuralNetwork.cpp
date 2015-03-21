@@ -4,12 +4,17 @@
 #include <math.h>
 #include <fstream>
 #include <algorithm>
+#include <mm_malloc.h>
 #include "initPapi.h"
 #include "naiveNeuralNetwork.h"
 #include "optimizedNeuralNetwork.h"
 using namespace naive;
 
 #define SHOW_CLASSIFICATION_ACCURANCY 0
+
+#define MEMORY_ALIGN 1
+
+
 namespace optimized {
     /**
      * Prints
@@ -131,17 +136,17 @@ namespace optimized {
             numOfWeights += neuralNetwork->setup.layers[i] * neuralNetwork->setup.layers[i - 1];
         }
 
-        neuralNetwork->state.weights = (float *) malloc (numOfWeights * sizeof(float));
+        neuralNetwork->state.weights = (float *) _mm_malloc(numOfWeights * sizeof(float), MEMORY_ALIGN);
         initWeights(neuralNetwork->state.weights, numOfWeights);
 
         #if SHOW_CLASSIFICATION_ACCURANCY
         int classificationAccurancyLength = 4 * neuralNetwork->setup.layers[neuralNetwork->setup.numOfLayers - 1] * neuralNetwork->criteria.maxEpochs;
         if (neuralNetwork->setup.classification) {
-            neuralNetwork->classificationAccurancyHistory = (int *) malloc (classificationAccurancyLength * sizeof(int));
+            neuralNetwork->classificationAccurancyHistory = (int *) _mm_malloc(classificationAccurancyLength * sizeof(int), MEMORY_ALIGN);
         }
         initAccurancy(neuralNetwork->classificationAccurancyHistory, classificationAccurancyLength);
         #endif
-        neuralNetwork->squareErrorHistory = (float *) malloc (2 * neuralNetwork->setup.layers[neuralNetwork->setup.numOfLayers - 1] * neuralNetwork->criteria.maxEpochs * sizeof(int));
+        neuralNetwork->squareErrorHistory = (float *) _mm_malloc(2 * neuralNetwork->setup.layers[neuralNetwork->setup.numOfLayers - 1] * neuralNetwork->criteria.maxEpochs * sizeof(int), MEMORY_ALIGN);
         neuralNetwork->bestSquareError[0] = -1.f;
         neuralNetwork->bestSquareError[1] = -1.f;
         neuralNetwork->currentSquareErrorCounter = 0.0f;
@@ -150,8 +155,8 @@ namespace optimized {
         for (int i = 0; i < neuralNetwork->setup.numOfLayers; i++) {
             numOfValues += neuralNetwork->setup.layers[i];
         }
-        neuralNetwork->state.values =  (float *) malloc (numOfValues * sizeof(float));
-        neuralNetwork->state.errors =  (float *) malloc (numOfValues * sizeof(float));
+        neuralNetwork->state.values =  (float *) _mm_malloc(numOfValues * sizeof(float), MEMORY_ALIGN);
+        neuralNetwork->state.errors =  (float *) _mm_malloc(numOfValues * sizeof(float), MEMORY_ALIGN);
     }
 
     /**
@@ -393,6 +398,7 @@ namespace optimized {
         int tmpLayers[] = {9, 9, 9, 2};
         neuralNetwork.setup.layers = tmpLayers;
 
+        float *expectedOutput =  (float *) _mm_malloc(neuralNetwork->setup.layers[neuralNetwork->setup.numOfLayers - 1] * sizeof(float), MEMORY_ALIGN);
         neuralNetwork.setup.minOutputValue = 0.f;
         neuralNetwork.setup.maxOutputValue = 1.f;
         neuralNetwork.criteria.maxEpochs = 25;
@@ -401,7 +407,6 @@ namespace optimized {
 
         initNeuralNetwork(&neuralNetwork);
 
-        float *expectedOutput =  (float *) malloc (neuralNetwork.setup.layers[neuralNetwork.setup.numOfLayers - 1] * sizeof(float));
 
         loadInputData("cancer.dt", &neuralNetwork, &taskData);
         float generalizationLoss, progress;
