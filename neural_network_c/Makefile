@@ -22,15 +22,20 @@ papi_obj := papi_cntr.o\
 all: join_files $(experiment_obj) main.o
 	$(CXX) $(experiment_obj) main.o -o main $(CPPFLAGS) $(OPT)
 
-papi1: papi1_set_flags $(papi_obj) all
-papi1_set_flags:
+papi_overall: papi_overall_set_flags $(papi_obj) all
+papi_overall_set_flags:
 	$(eval experiment_obj = $(papi_obj) $(experiment_obj))
 	$(eval CPPFLAGS += -lpapi -L/usr/local/lib64 -DUSE_PAPI_LEARN_AND_TEST=1)
 
-papi2: papi2_set_flags $(papi_obj) all
-papi2_set_flags:
+papi_detail: papi_detail_set_flags $(papi_obj) all
+papi_detail_set_flags:
 	$(eval experiment_obj = $(papi_obj) $(experiment_obj))
-	$(eval CPPFLAGS += -lpapi -L/usr/local/lib64 -DUSE_PAPI_LEARN_DETAIL -DUSE_PAPI_TEST_DETAIL)
+	$(eval CPPFLAGS += -lpapi -L/usr/local/lib64 -DUSE_PAPI_LEARN_DETAIL=1 -DUSE_PAPI_TEST_DETAIL=1)
+
+papi_neural_row: papi_neural_row_set_flags $(papi_obj) all
+papi_neural_row_set_flags:
+	$(eval experiment_obj = $(papi_obj) $(experiment_obj))
+	$(eval CPPFLAGS += -lpapi -L/usr/local/lib64 -DUSE_PAPI_NEURAL_ROW_LEARN=1 -DUSE_PAPI_NEURAL_ROW_TEST=1)
 
 clean:
 	rm -f *.o *.optrpt main

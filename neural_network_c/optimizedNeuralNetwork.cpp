@@ -12,7 +12,7 @@ using namespace naive;
 
 #define SHOW_CLASSIFICATION_ACCURANCY 0
 
-#define MEMORY_ALIGN 1
+#define MEMORY_ALIGN 32
 
 
 namespace optimized {
@@ -202,12 +202,22 @@ namespace optimized {
             int prevNeurons = layers[layer - 1];
             valueOffset += prevNeurons;
             for (int neuron = 0; neuron < neurons; neuron++) {
+                #if USE_PAPI_NEURAL_ROW_LEARN
+                if (neuron == 0) {
+                    (*papi_routines)["o_network_learning_neural_row_foward_computation"].Start();
+                }
+                #endif
                 float value = 0;
                 for (int prevNeuron = 0; prevNeuron < prevNeurons; prevNeuron++) {
                     value += values[prevNeuron + prevValueOffset] * weights[prevNeuron + weightOffset];
                 }
                 // std::cout << value << "  ";
                 values[neuron + valueOffset] = 1. / (1. + exp(-neuralNetwork->setup.lambda * value));
+                #if USE_PAPI_NEURAL_ROW_LEARN
+                if (neuron == 0) {
+                    (*papi_routines)["o_network_learning_neural_row_foward_computation"].Stop();
+                }
+                #endif
                 weightOffset += prevNeurons;
             }
             prevValueOffset += prevNeurons;
@@ -221,12 +231,17 @@ namespace optimized {
         (*papi_routines)["o_network_learning_error_computation"].Start();
         #endif
         for (int neuron = 0; neuron < layers[numOfLayers - 1]; neuron++) {
+            #if USE_PAPI_NEURAL_ROW_LEARN
+            if (neuron == 0) {
+                (*papi_routines)["o_network_learning_neural_row_error_computation"].Start();
+            }
+            #endif
             float value = values[neuron + valueOffset];
-
             float cmpValue = value;
             if (neuralNetwork->setup.classification) {
                 cmpValue = round(value);
             }
+            // std::cout << value << " ";
 
             if (expectedOutput[neuron] - cmpValue) {
                 // std::cout << "chyba u " << neuron << " " << value << std::endl;
@@ -236,6 +251,11 @@ namespace optimized {
             } else {
                 errors[neuron + valueOffset] = 0.f;
             }
+            #if USE_PAPI_NEURAL_ROW_LEARN
+            if (neuron == 0) {
+                (*papi_routines)["o_network_learning_neural_row_error_computation"].Stop();
+            }
+            #endif
             // std::cout << (expectedOutput[neuron] - value) << std::endl;
         }
         // std::cout  << std::endl;
@@ -246,6 +266,11 @@ namespace optimized {
             valueOffset -= neurons;
             weightOffset -= neurons * followNeurons;
             for (int neuron = 0; neuron < neurons; neuron++) {
+                #if USE_PAPI_NEURAL_ROW_LEARN
+                if (neuron == 0) {
+                    (*papi_routines)["o_network_learning_neural_row_error_computation"].Start();
+                }
+                #endif
                 float weightError = 0.f;
                 for (int followNeuron = 0; followNeuron < followNeurons; followNeuron++) {
                     weightError += errors[followNeuron + followValueOffset] *
@@ -255,6 +280,11 @@ namespace optimized {
                 float value = values[neuron + valueOffset];
                 float ex = exp(-neuralNetwork->setup.lambda*value);
                 errors[neuron + valueOffset] = weightError * (ex * (1 - ex));
+                #if USE_PAPI_NEURAL_ROW_LEARN
+                if (neuron == 0) {
+                    (*papi_routines)["o_network_learning_neural_row_error_computation"].Stop();
+                }
+                #endif
             }
             weightOffset -= neurons * followNeurons;
             followValueOffset -= neurons;
@@ -273,12 +303,22 @@ namespace optimized {
             int neurons = layers[layer];
             int prevNeurons = layers[layer - 1];
             for (int neuron = 0; neuron < neurons; neuron++) {
+                #if USE_PAPI_NEURAL_ROW_LEARN
+                if (neuron == 0) {
+                    (*papi_routines)["o_network_learning_neural_row_weight_update"].Start();
+                }
+                #endif
                 float value = 0.f;
                 for (int prevNeuron = 0; prevNeuron < prevNeurons; prevNeuron++) {
                     weights[prevNeuron + weightOffset] = weights[prevNeuron + weightOffset] +
                                                          neuralNetwork->setup.learningFactor * values[prevNeuron + valueOffset] *
                                                          errors[neuron + valueOffset + prevNeurons];
                 }
+                #if USE_PAPI_NEURAL_ROW_LEARN
+                if (neuron == 0) {
+                    (*papi_routines)["o_network_learning_neural_row_weight_update"].Stop();
+                }
+                #endif
                 weightOffset += prevNeurons;
             }
             valueOffset += prevNeurons;
@@ -317,12 +357,22 @@ namespace optimized {
             int prevNeurons = layers[layer - 1];
             valueOffset += prevNeurons;
             for (int neuron = 0; neuron < neurons; neuron++) {
+                #if USE_PAPI_NEURAL_ROW_TEST
+                if (neuron == 0) {
+                    (*papi_routines)["o_network_testing_neural_row_foward_computation"].Start();
+                }
+                #endif
                 float value = 0.f;
                 for (int prevNeuron = 0; prevNeuron < prevNeurons; prevNeuron++) {
                     value += values[prevNeuron + prevValueOffset] * weights[prevNeuron + weightOffset];
                 }
                 // std::cout << value << "  ";
                 values[neuron + valueOffset] = 1.f / (1.f + exp(-neuralNetwork->setup.lambda * value));
+                #if USE_PAPI_NEURAL_ROW_TEST
+                if (neuron == 0) {
+                    (*papi_routines)["o_network_testing_neural_row_foward_computation"].Stop();
+                }
+                #endif
                 weightOffset += prevNeurons;
             }
             prevValueOffset += prevNeurons;
@@ -339,6 +389,11 @@ namespace optimized {
         #endif
         int numOfOutputNeurons = layers[numOfLayers - 1];
         for (int neuron = 0; neuron < numOfOutputNeurons; neuron++) {
+            #if USE_PAPI_NEURAL_ROW_TEST
+            if (neuron == 0) {
+                (*papi_routines)["o_network_testing_neural_row_error_computation"].Start();
+            }
+            #endif
             float value = values[neuron + valueOffset];
             float diff;
             
@@ -377,6 +432,11 @@ namespace optimized {
                 diff = expectedOutput[neuron] - value;
                 neuralNetwork->currentSquareErrorCounter += diff * diff; 
             }
+            #if USE_PAPI_NEURAL_ROW_TEST
+            if (neuron == 0) {
+                (*papi_routines)["o_network_testing_neural_row_error_computation"].Stop();
+            }
+            #endif
             
         }
         #if USE_PAPI_LEARN_DETAIL
@@ -406,8 +466,16 @@ namespace optimized {
             #if USE_PAPI_LEARN_AND_TEST
             (*papi_routines)["o_network_learning"].Start();
             #endif
+            int counter = 0;
             while (getLearningVector(neuralNetwork, &taskData, expectedOutput)) {
                 neuralLearnCycle(neuralNetwork, expectedOutput);
+                // if (counter > 10) {
+                //     #if USE_PAPI_LEARN_AND_TEST
+                //     (*papi_routines)["o_network_learning"].Stop();
+                //     #endif
+                //     return;
+                // }
+                // counter ++;
             }
             #if USE_PAPI_LEARN_AND_TEST
             (*papi_routines)["o_network_learning"].Stop();

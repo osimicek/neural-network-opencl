@@ -13,7 +13,7 @@ int main(int argc, char **argv)
         filename = argv[1];
     }
 
-    #if USE_PAPI_LEARN_AND_TEST || USE_PAPI_LEARN_DETAIL || USE_PAPI_TEST_DETAIL
+    #if USE_PAPI_LEARN_AND_TEST || USE_PAPI_LEARN_DETAIL || USE_PAPI_TEST_DETAIL || USE_PAPI_NEURAL_ROW_LEARN || USE_PAPI_NEURAL_ROW_TEST
     initPapi();
     #endif
 
@@ -41,8 +41,7 @@ int main(int argc, char **argv)
     // }
     optimized::runOptimizedNeuralNetwork(&neuralNetwork, filename);
     naive::runNaiveNeuralNetwork(&neuralNetwork, filename);
-
-    #if USE_PAPI_LEARN_AND_TEST || USE_PAPI_LEARN_DETAIL || USE_PAPI_TEST_DETAIL
+    #if USE_PAPI_LEARN_AND_TEST || USE_PAPI_LEARN_DETAIL || USE_PAPI_TEST_DETAIL || USE_PAPI_NEURAL_ROW_LEARN || USE_PAPI_NEURAL_ROW_TEST
     papi_routines->PrintScreen();
     delete papi_routines;
     #endif
