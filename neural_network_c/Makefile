@@ -1,7 +1,7 @@
 ERR = $(shell which icpc >/dev/null; echo $$?)
 ifeq "$(ERR)" "0"
     CXX = icpc
-    CPPFLAGS += -O3 -xavx
+    CPPFLAGS += -O3 -msse4.2 -qopt-report3
 else
     CXX = g++
     CPPFLAGS += -O3
@@ -33,7 +33,7 @@ papi2_set_flags:
 	$(eval CPPFLAGS += -lpapi -L/usr/local/lib64 -DUSE_PAPI_LEARN_DETAIL -DUSE_PAPI_TEST_DETAIL)
 
 clean:
-	rm -f *.o main
+	rm -f *.o *.optrpt main
 
 join_files:
 	cat data/mnist_part_* > data/mnist.dt
