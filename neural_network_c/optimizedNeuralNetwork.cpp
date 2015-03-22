@@ -183,10 +183,10 @@ namespace optimized {
     void neuralLearnCycle(NeuralNetwork *neuralNetwork, 
                     float *expectedOutput) {
         int numOfLayers = neuralNetwork->setup.numOfLayers;
-        int *layers = neuralNetwork->setup.layers;
-        float *values = neuralNetwork->state.values;
-        float *weights = neuralNetwork->state.weights;
-        float *errors = neuralNetwork->state.errors;
+        int * __restrict layers = neuralNetwork->setup.layers;
+        float * __restrict values = neuralNetwork->state.values;
+        float * __restrict weights = neuralNetwork->state.weights;
+        float * __restrict errors = neuralNetwork->state.errors;
 
 
         int valueOffset = 0;
@@ -340,9 +340,9 @@ namespace optimized {
                     float *expectedOutput) {
         
         int numOfLayers = neuralNetwork->setup.numOfLayers;
-        int *layers = neuralNetwork->setup.layers;
-        float *values = neuralNetwork->state.values;
-        float *weights = neuralNetwork->state.weights;
+        int * __restrict layers = neuralNetwork->setup.layers;
+        float * __restrict values = neuralNetwork->state.values;
+        float * __restrict weights = neuralNetwork->state.weights;
 
         int valueOffset = 0;
         int prevValueOffset = 0;
