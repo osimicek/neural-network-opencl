@@ -1,5 +1,13 @@
-CC= g++
-CPPFLAGS += -O3
+ERR = $(shell which icpc >/dev/null; echo $$?)
+ifeq "$(ERR)" "0"
+    CXX = icpc
+    CPPFLAGS += -O3 -xavx
+else
+    CXX = g++
+    CPPFLAGS += -O3
+endif
+
+
 
 PAPI_EVENTS_F=PAPI_FP_OPS|PAPI_TOT_CYC|PAPI_TOT_INS
 PAPI_EVENTS_M=PAPI_L1_DCA|PAPI_L1_DCM|PAPI_L2_DCA|PAPI_L2_DCM
@@ -12,7 +20,7 @@ papi_obj := papi_cntr.o\
 			initPapi.o
 
 all: join_files $(experiment_obj) main.o
-	$(CC) $(experiment_obj) main.o -o main $(CPPFLAGS) $(OPT)
+	$(CXX) $(experiment_obj) main.o -o main $(CPPFLAGS) $(OPT)
 
 papi1: papi1_set_flags $(papi_obj) all
 papi1_set_flags:
