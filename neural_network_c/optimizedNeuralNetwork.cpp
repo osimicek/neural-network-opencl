@@ -12,7 +12,7 @@ using namespace naive;
 
 #define SHOW_CLASSIFICATION_ACCURANCY 0
 
-#define MEMORY_ALIGN 32
+#define MEMORY_ALIGN 64
 
 
 namespace optimized {
@@ -208,6 +208,7 @@ namespace optimized {
                 }
                 #endif
                 float value = 0;
+                #pragma ivdep
                 for (int prevNeuron = 0; prevNeuron < prevNeurons; prevNeuron++) {
                     value += values[prevNeuron + prevValueOffset] * weights[prevNeuron + weightOffset];
                 }
@@ -272,6 +273,7 @@ namespace optimized {
                 }
                 #endif
                 float weightError = 0.f;
+                #pragma ivdep
                 for (int followNeuron = 0; followNeuron < followNeurons; followNeuron++) {
                     weightError += errors[followNeuron + followValueOffset] *
                                   weights[followNeuron + weightOffset];
@@ -309,6 +311,7 @@ namespace optimized {
                 }
                 #endif
                 float value = 0.f;
+                #pragma ivdep
                 for (int prevNeuron = 0; prevNeuron < prevNeurons; prevNeuron++) {
                     weights[prevNeuron + weightOffset] = weights[prevNeuron + weightOffset] +
                                                          neuralNetwork->setup.learningFactor * values[prevNeuron + valueOffset] *
@@ -363,6 +366,7 @@ namespace optimized {
                 }
                 #endif
                 float value = 0.f;
+                #pragma ivdep
                 for (int prevNeuron = 0; prevNeuron < prevNeurons; prevNeuron++) {
                     value += values[prevNeuron + prevValueOffset] * weights[prevNeuron + weightOffset];
                 }
