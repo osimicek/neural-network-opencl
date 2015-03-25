@@ -527,22 +527,22 @@ namespace naive {
                 // neuralNetwork->currentSquareErrorCounter += diff * diff; 
 
                 int pos = 4 * neuron + 4 * numOfOutputNeurons * neuralNetwork->state.epoch;
-                if (classValue == 1 && expectedOutput[neuron] == 1) {
+                if (classValue == 1 && expectedOutput[neuron] == 1.f) {
                     // true positive
                     neuralNetwork->classificationAccurancyHistory[pos] += 1;
-                } else if (classValue == 1 && expectedOutput[neuron] == 0) {
+                } else if (classValue == 1 && expectedOutput[neuron] == 0.f) {
                     // true negative
                     // diff = expectedOutput[neuron] - value;
                     neuralNetwork->currentSquareErrorCounter += 1; 
 
                     neuralNetwork->classificationAccurancyHistory[pos + 1] += 1;
-                } else if (classValue == 0 && expectedOutput[neuron] == 1) {
+                } else if (classValue == 0 && expectedOutput[neuron] == 1.f) {
                     // false negative
                     // diff = expectedOutput[neuron] - value;
                     neuralNetwork->currentSquareErrorCounter += 1; 
 
                     neuralNetwork->classificationAccurancyHistory[pos + 2] += 1;
-                } else if (classValue == 0 && expectedOutput[neuron] == 0) {
+                } else if (classValue == 0 && expectedOutput[neuron] == 0.f) {
                     // false positive
                     neuralNetwork->classificationAccurancyHistory[pos + 3] += 1; 
                 }
