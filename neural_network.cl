@@ -1,5 +1,3 @@
-#pragma OPENCL EXTENSION cl_khr_int64_base_atomics : enable
-
 typedef struct {
    __global float *learningInputs, *learningOutputs;
    int totalLearningLines;
@@ -42,12 +40,6 @@ typedef struct {
 } neuralNetwork_t;
 
 typedef struct {
-    int taskData_b_offset_learningInputs, taskData_b_offset_learningOutputs;
-    int taskData_totalLearningLines;
-    int taskData_b_offset_testInputs, taskData_b_offset_testOutputs;
-    int taskData_totalTestLines;
-    int taskData_b_size;
-
     int setup_numOfLayers;
     int setup_b_offset_layers;
     bool setup_classification;
@@ -73,7 +65,16 @@ typedef struct {
     float neuralNetwork_bestSquareError[2];
     int neuralNetwork_b_offset_squareErrorHistory;
     int neuralNetwork_b_size;
-} transform_structure_t;
+    int neuralNetwork_b_offset;
+} neural_network_transform_t;
+
+typedef struct {
+    int taskData_b_offset_learningInputs, taskData_b_offset_learningOutputs;
+    int taskData_totalLearningLines;
+    int taskData_b_offset_testInputs, taskData_b_offset_testOutputs;
+    int taskData_totalTestLines;
+    int taskData_b_size;
+} task_data_transform_t;
 
 size_t get_local_linear_id() {
     return  (get_local_id(2) * get_local_size(1) *
@@ -138,7 +139,7 @@ bool getTestVector(neuralNetwork_t *neuralNetwork, taskData_t *taskData, __local
                                         neuralNetwork->state.testLine * neuralNetwork->setup.layers[neuralNetwork->setup.numOfLayers - 1]),
                                     neuralNetwork->setup.layers[neuralNetwork->setup.numOfLayers - 1], 0);
     wait_group_events(1, &e2);
-    neuralNetwork->state.testLine ++;
+    neuralNetwork->state.testLine++;
     return true;
 }
 
@@ -157,6 +158,11 @@ void findAndSetBestSquareError(neuralNetwork_t *neuralNetwork) {
     }
 }
 
+/**
+ * Performs a learning cycle of neural network. Input vector is transformed to output vector.
+ * Output vector si compared with expected output and error is backpropagated throw net and
+ * weights are modified..
+ */
 void neuralLearnCycle(neuralNetwork_t *neuralNetwork, 
                        __local float *expectedOutput,
                        int neuron) {
@@ -182,12 +188,13 @@ void neuralLearnCycle(neuralNetwork_t *neuralNetwork,
 
     float ex;
     float classValue;
-    float weightError;  
+    float weightError;
 
 
     // foward value computation
     for (layer = 1; layer < numOfLayers; layer++) {
         prevNeurons = layers[layer - 1];
+        prefetch(&weights[weightOffset], prevNeurons);
         neurons = layers[layer];
         valueOffset += prevNeurons;
         weightOffset += neuron * prevNeurons;
@@ -225,6 +232,7 @@ void neuralLearnCycle(neuralNetwork_t *neuralNetwork,
     followValueOffset = valueOffset;
     for (layer = numOfLayers - 2; layer > 0; layer--) {
         followNeurons = layers[layer + 1];
+        prefetch(&weights[weightOffset], followNeurons);
         neurons = layers[layer];
         valueOffset -= neurons;
         weightOffset -= (neurons - neuron) * followNeurons;
@@ -247,6 +255,7 @@ void neuralLearnCycle(neuralNetwork_t *neuralNetwork,
     valueOffset = 0;
     for (layer = 1; layer < numOfLayers; layer++) {
         prevNeurons = layers[layer - 1];
+        prefetch(&weights[weightOffset], prevNeurons);
         neurons = layers[layer];
         weightOffset += neuron * prevNeurons;
         if (neuron < neurons) {
@@ -326,150 +335,162 @@ void neuralTestCycle(neuralNetwork_t *neuralNetwork,
     // }
 }
 
-
-
-
-
-typedef struct {
-    float *x;
-    float *y;
-    float val;
-} my_struct_t;
-
-
-
-typedef struct {
-    my_struct_t a;
-    int cnt;
-} my_arr_struct_t;
-
-
-void importDataStructures(__global transform_structure_t *transform, __global float * neuralNetworkBuffer, __global float *task_data_buffer, neuralNetwork_t *neuralNetwork, taskData_t *taskData) {
+void importDataStructures(__global neural_network_transform_t *neural_network_transform,
+                          __global task_data_transform_t *task_data_transform,
+                          __global float * neural_network_buffer,
+                          __global float *task_data_buffer,
+                          neuralNetwork_t *neuralNetwork,
+                          taskData_t *taskData) {
     int lid = get_local_linear_id();
-    taskData->learningInputs = (task_data_buffer + transform->taskData_b_offset_learningInputs);
-    taskData->learningOutputs = (task_data_buffer + transform->taskData_b_offset_learningOutputs);
-    taskData->totalLearningLines = transform->taskData_totalLearningLines;
-    taskData->testInputs = (task_data_buffer + transform->taskData_b_offset_testInputs);
-    taskData->testOutputs = (task_data_buffer + transform->taskData_b_offset_testOutputs);
-    taskData->totalTestLines = transform->taskData_totalTestLines;
+    taskData->learningInputs = (task_data_buffer + task_data_transform->taskData_b_offset_learningInputs);
+    taskData->learningOutputs = (task_data_buffer + task_data_transform->taskData_b_offset_learningOutputs);
+    taskData->totalLearningLines = task_data_transform->taskData_totalLearningLines;
+    taskData->testInputs = (task_data_buffer + task_data_transform->taskData_b_offset_testInputs);
+    taskData->testOutputs = (task_data_buffer + task_data_transform->taskData_b_offset_testOutputs);
+    taskData->totalTestLines = task_data_transform->taskData_totalTestLines;
 
-    neuralNetwork->setup.numOfLayers = transform->setup_numOfLayers;
-    neuralNetwork->setup.classification = transform->setup_classification;
-    neuralNetwork->setup.minOutputValue = transform->setup_minOutputValue;
-    neuralNetwork->setup.maxOutputValue = transform->setup_maxOutputValue;
-    neuralNetwork->setup.learningFactor = transform->setup_learningFactor;
-    neuralNetwork->setup.lambda = transform->setup_lambda;
+    neuralNetwork->setup.numOfLayers = neural_network_transform->setup_numOfLayers;
+    neuralNetwork->setup.classification = neural_network_transform->setup_classification;
+    neuralNetwork->setup.minOutputValue = neural_network_transform->setup_minOutputValue;
+    neuralNetwork->setup.maxOutputValue = neural_network_transform->setup_maxOutputValue;
+    neuralNetwork->setup.learningFactor = neural_network_transform->setup_learningFactor;
+    neuralNetwork->setup.lambda = neural_network_transform->setup_lambda;
     event_t e1 = async_work_group_copy(neuralNetwork->setup.layers,
-                                    (__global int *)(neuralNetworkBuffer + transform->setup_b_offset_layers),
-                                    transform->setup_numOfLayers, 0);
+                                    (__global int *)(neural_network_buffer + neural_network_transform->setup_b_offset_layers),
+                                    neural_network_transform->setup_numOfLayers, 0);
     wait_group_events(1, &e1);
 
-    neuralNetwork->criteria.maxEpochs = transform->criteria_maxEpochs;
-    neuralNetwork->criteria.minProgress = transform->criteria_minProgress;
-    neuralNetwork->criteria.maxGeneralizationLoss = transform->criteria_maxGeneralizationLoss;
+    neuralNetwork->criteria.maxEpochs = neural_network_transform->criteria_maxEpochs;
+    neuralNetwork->criteria.minProgress = neural_network_transform->criteria_minProgress;
+    neuralNetwork->criteria.maxGeneralizationLoss = neural_network_transform->criteria_maxGeneralizationLoss;
 
-    neuralNetwork->state.epoch = transform->state_epoch;
-    neuralNetwork->state.testLine = transform->state_testLine;
-    neuralNetwork->state.learningLine = transform->state_learningLine;
-    neuralNetwork->state.weights = (neuralNetworkBuffer + transform->state_b_offset_weights);
+    neuralNetwork->state.epoch = neural_network_transform->state_epoch;
+    neuralNetwork->state.testLine = neural_network_transform->state_testLine;
+    neuralNetwork->state.learningLine = neural_network_transform->state_learningLine;
+    neuralNetwork->state.weights = (neural_network_buffer + neural_network_transform->state_b_offset_weights);
+    // return;
     event_t e2 = async_work_group_copy(neuralNetwork->state.values,
-                                    (neuralNetworkBuffer + transform->state_b_offset_values),
-                                    transform->state_b_size_values, 0);
+                                    (neural_network_buffer + neural_network_transform->state_b_offset_values),
+                                    neural_network_transform->state_b_size_values, 0);
     wait_group_events(1, &e2);
 
     event_t e3 = async_work_group_copy(neuralNetwork->state.errors,
-                                    (neuralNetworkBuffer + transform->state_b_offset_errors),
-                                    transform->state_b_size_errors, 0);
+                                    (neural_network_buffer + neural_network_transform->state_b_offset_errors),
+                                    neural_network_transform->state_b_size_errors, 0);
     wait_group_events(1, &e3);
     if (lid == 0) {
-        neuralNetwork->currentSquareErrorCounter = transform->neuralNetwork_currentSquareErrorCounter;
+        neuralNetwork->currentSquareErrorCounter = neural_network_transform->neuralNetwork_currentSquareErrorCounter;
     }
-    neuralNetwork->bestSquareError[0] = transform->neuralNetwork_bestSquareError[0];
-    neuralNetwork->bestSquareError[1] = transform->neuralNetwork_bestSquareError[1];
-    neuralNetwork->squareErrorHistory = (neuralNetworkBuffer + transform->neuralNetwork_b_offset_squareErrorHistory);
+    neuralNetwork->bestSquareError[0] = neural_network_transform->neuralNetwork_bestSquareError[0];
+    neuralNetwork->bestSquareError[1] = neural_network_transform->neuralNetwork_bestSquareError[1];
+    neuralNetwork->squareErrorHistory = (neural_network_buffer + neural_network_transform->neuralNetwork_b_offset_squareErrorHistory);
 }
 
-void exportDataStructures(__global transform_structure_t *transform, __global float * neuralNetworkBuffer, __global float *task_data_buffer, neuralNetwork_t *neuralNetwork, taskData_t *taskData) {
+void exportDataStructures(__global neural_network_transform_t *neural_network_transform,
+                        __global float * neural_network_buffer,
+                        __global float *task_data_buffer,
+                        neuralNetwork_t *neuralNetwork,
+                        taskData_t *taskData) {
     int lid = get_local_linear_id();
-    transform->setup_numOfLayers = neuralNetwork->setup.numOfLayers;
-    transform->setup_classification = neuralNetwork->setup.classification;
-    transform->setup_minOutputValue = neuralNetwork->setup.minOutputValue;
-    transform->setup_maxOutputValue = neuralNetwork->setup.maxOutputValue;
-    transform->setup_learningFactor = neuralNetwork->setup.learningFactor;
-    neuralNetwork->setup.lambda = transform->setup_lambda;
-    event_t e1 = async_work_group_copy((__global int *)(neuralNetworkBuffer + transform->setup_b_offset_layers),
+    neural_network_transform->setup_numOfLayers = neuralNetwork->setup.numOfLayers;
+    neural_network_transform->setup_classification = neuralNetwork->setup.classification;
+    neural_network_transform->setup_minOutputValue = neuralNetwork->setup.minOutputValue;
+    neural_network_transform->setup_maxOutputValue = neuralNetwork->setup.maxOutputValue;
+    neural_network_transform->setup_learningFactor = neuralNetwork->setup.learningFactor;
+    neuralNetwork->setup.lambda = neural_network_transform->setup_lambda;
+    event_t e1 = async_work_group_copy((__global int *)(neural_network_buffer + neural_network_transform->setup_b_offset_layers),
                                         neuralNetwork->setup.layers,
-                                        transform->setup_numOfLayers, 0);
+                                        neural_network_transform->setup_numOfLayers, 0);
     wait_group_events(1, &e1);
 
-    transform->criteria_maxEpochs = neuralNetwork->criteria.maxEpochs;
-    transform->criteria_minProgress = neuralNetwork->criteria.minProgress;
-    transform->criteria_maxGeneralizationLoss = neuralNetwork->criteria.maxGeneralizationLoss;
+    neural_network_transform->criteria_maxEpochs = neuralNetwork->criteria.maxEpochs;
+    neural_network_transform->criteria_minProgress = neuralNetwork->criteria.minProgress;
+    neural_network_transform->criteria_maxGeneralizationLoss = neuralNetwork->criteria.maxGeneralizationLoss;
 
-    transform->state_epoch = neuralNetwork->state.epoch;
-    transform->state_testLine = neuralNetwork->state.testLine;
-    transform->state_learningLine = neuralNetwork->state.learningLine;
-    event_t e2 = async_work_group_copy((neuralNetworkBuffer + transform->state_b_offset_values),
+    neural_network_transform->state_epoch = neuralNetwork->state.epoch;
+    neural_network_transform->state_testLine = neuralNetwork->state.testLine;
+    neural_network_transform->state_learningLine = neuralNetwork->state.learningLine;
+    event_t e2 = async_work_group_copy((neural_network_buffer + neural_network_transform->state_b_offset_values),
                                         neuralNetwork->state.values,
-                                        transform->state_b_size_values, 0);
+                                        neural_network_transform->state_b_size_values, 0);
     wait_group_events(1, &e2);
 
-    event_t e3 = async_work_group_copy((neuralNetworkBuffer + transform->state_b_offset_errors),
+    event_t e3 = async_work_group_copy((neural_network_buffer + neural_network_transform->state_b_offset_errors),
                                         neuralNetwork->state.errors,
-                                        transform->state_b_size_errors, 0);
+                                        neural_network_transform->state_b_size_errors, 0);
     wait_group_events(1, &e3);
     if (lid == 0) {
-        transform->neuralNetwork_currentSquareErrorCounter = neuralNetwork->currentSquareErrorCounter;
+        neural_network_transform->neuralNetwork_currentSquareErrorCounter = neuralNetwork->currentSquareErrorCounter;
     }
-    transform->neuralNetwork_bestSquareError[0] = neuralNetwork->bestSquareError[0];
-    transform->neuralNetwork_bestSquareError[1] = neuralNetwork->bestSquareError[1];
+    neural_network_transform->neuralNetwork_bestSquareError[0] = neuralNetwork->bestSquareError[0];
+    neural_network_transform->neuralNetwork_bestSquareError[1] = neuralNetwork->bestSquareError[1];
 }
 
 __kernel void run_neural_network(
-    __global transform_structure_t *transform,
-    __global float *neuralNetworkBuffer,
-    __global float *task_data_buffer
+    __global neural_network_transform_t *neural_network_transform_arr,
+    __global task_data_transform_t *task_data_transform,
+    __global float *neural_network_buffer_arr,
+    __global float *task_data_buffer,
+    int number_of_networks
     )
 {
-    int lid = get_local_linear_id();
-    taskData_t taskData;
-    neuralNetwork_t neuralNetwork;
-    __local float *expectedOutput;
-    __local float sharedMemory[2000];
-    neuralNetwork.setup.layers = (__local int*)sharedMemory;
-    neuralNetwork.state.values = sharedMemory + transform->setup_numOfLayers;
-    neuralNetwork.state.errors = sharedMemory + transform->setup_numOfLayers + transform->state_b_size_values;
-    importDataStructures(transform, neuralNetworkBuffer, task_data_buffer, &neuralNetwork, &taskData);
-    expectedOutput = sharedMemory + transform->setup_numOfLayers + transform->state_b_size_values + transform->state_b_size_errors;
-    
-    for (neuralNetwork.state.epoch = 0; neuralNetwork.state.epoch < neuralNetwork.criteria.maxEpochs; neuralNetwork.state.epoch++) {
-        neuralNetwork.state.learningLine = 0;
-        neuralNetwork.state.testLine = 0;
-        while (getLearningVector(&neuralNetwork, &taskData, expectedOutput)) {
-            neuralLearnCycle(&neuralNetwork, expectedOutput, lid);
-            // if (neuralNetwork.state.learningLine > 349  && neuralNetwork.state.epoch >= 0) {
-            //     exportDataStructures(transform, neuralNetworkBuffer, task_data_buffer, &neuralNetwork, &taskData);
-            //     return;
+    __global float *neural_network_buffer = neural_network_buffer_arr;
+    int group_id = get_group_linear_id();
+    int cycle_counter = 0;
+
+    if (group_id < number_of_networks) {
+    // if (group_id != 0) {
+        int lid = get_local_linear_id();
+        taskData_t taskData;
+        neuralNetwork_t neuralNetwork;
+        __global neural_network_transform_t *neural_network_transform = &neural_network_transform_arr[group_id];
+        neural_network_buffer = neural_network_buffer + neural_network_transform->neuralNetwork_b_offset;
+        __local float *expectedOutput;
+        __local float sharedMemory[SHARED_MEMORY_SIZE];
+        neuralNetwork.setup.layers = (__local int*)sharedMemory;
+        neuralNetwork.state.values = sharedMemory + neural_network_transform->setup_numOfLayers;
+        neuralNetwork.state.errors = sharedMemory + neural_network_transform->setup_numOfLayers + neural_network_transform->state_b_size_values;
+
+        importDataStructures(neural_network_transform, task_data_transform, neural_network_buffer, task_data_buffer, &neuralNetwork, &taskData);
+        expectedOutput = sharedMemory + neural_network_transform->setup_numOfLayers + neural_network_transform->state_b_size_values + neural_network_transform->state_b_size_errors;
+        for (; neuralNetwork.state.epoch < neuralNetwork.criteria.maxEpochs; neuralNetwork.state.epoch++) {
+            while (getLearningVector(&neuralNetwork, &taskData, expectedOutput)) {
+                neuralLearnCycle(&neuralNetwork, expectedOutput, lid);
+                cycle_counter++;
+                if (cycle_counter > 100) {
+                    exportDataStructures(neural_network_transform, neural_network_buffer, task_data_buffer, &neuralNetwork, &taskData);
+                    return;
+                }
+                // if (neuralNetwork.state.learningLine >= 0  && neuralNetwork.state.epoch >= 0) {
+                //     exportDataStructures(neural_network_transform, neural_network_buffer, task_data_buffer, &neuralNetwork, &taskData);
+                //     return;
+                // }
+            }
+            // if (lid == 0){
+                neuralNetwork.currentSquareErrorCounter = 0.f;
             // }
+
+
+            while (getTestVector(&neuralNetwork, &taskData, expectedOutput)) {
+                neuralTestCycle(&neuralNetwork, expectedOutput, lid);
+                cycle_counter++;
+                if (cycle_counter > 100) {
+                    exportDataStructures(neural_network_transform, neural_network_buffer, task_data_buffer, &neuralNetwork, &taskData);
+                    return;
+                }
+                // if (neuralNetwork.state.testLine > 348  && neuralNetwork.state.epoch >= 0) {
+                    // exportDataStructures(neural_network_transform, neural_network_buffer, task_data_buffer, &neuralNetwork, &taskData);
+                    // return;
+                // }
+            }
+            neuralNetwork.squareErrorHistory[neuralNetwork.state.epoch] = (neuralNetwork.setup.maxOutputValue - neuralNetwork.setup.minOutputValue) *
+                                                                            neuralNetwork.currentSquareErrorCounter / (neuralNetwork.setup.layers[neuralNetwork.setup.numOfLayers - 1] *
+                                                                            taskData.totalTestLines);
+            findAndSetBestSquareError(&neuralNetwork);
+            neuralNetwork.state.learningLine = 0;
+            neuralNetwork.state.testLine = 0;
+            // break;
         }
-        // if (lid == 0){
-            neuralNetwork.currentSquareErrorCounter = 0.f;
-        // }
-
-
-        while (getTestVector(&neuralNetwork, &taskData, expectedOutput)) {
-            neuralTestCycle(&neuralNetwork, expectedOutput, lid);
-            // if (neuralNetwork.state.testLine > 348  && neuralNetwork.state.epoch >= 0) {
-                // exportDataStructures(transform, neuralNetworkBuffer, task_data_buffer, &neuralNetwork, &taskData);
-                // return;
-            // }
-        }
-
-        neuralNetwork.squareErrorHistory[neuralNetwork.state.epoch] = (neuralNetwork.setup.maxOutputValue - neuralNetwork.setup.minOutputValue) *
-                                                                        neuralNetwork.currentSquareErrorCounter / (neuralNetwork.setup.layers[neuralNetwork.setup.numOfLayers - 1] *
-                                                                        taskData.totalTestLines);
-        findAndSetBestSquareError(&neuralNetwork);
-        // break;
+        exportDataStructures(neural_network_transform, neural_network_buffer, task_data_buffer, &neuralNetwork, &taskData);
     }
-    exportDataStructures(transform, neuralNetworkBuffer, task_data_buffer, &neuralNetwork, &taskData);
 }
