@@ -7,6 +7,7 @@ neuralnetwork_obj :=    OpenclHelper.o \
 						NeuralNetwork.o \
 						NetworksContainer.o \
 						NetworksRunner.o \
+						GeneticAlgorithm.o \
 
 all: $(EXECUTABLES)
 
