@@ -4,9 +4,8 @@
 #include "NeuralNetwork.h"
 
 class NetworksContainer {
-    public:
+    private:
         std::vector<NeuralNetwork *> neural_networks_storage;
-        std::vector<NeuralNetwork *> neural_networks;
 
         neural_network_transform_t *transforms;
         task_data_transform_t task_data_transform;
@@ -14,14 +13,17 @@ class NetworksContainer {
         void *neural_network_buffer;
         int neural_network_buffer_size;
         int shared_memory_per_network;
-        taskData_t taskData;
         void *task_data_buffer;
         int task_data_buffer_size;
         int inputVectorSize;
         int outputVectorSize;
         int container_size;
-        NetworksContainer();
         void alloc_neural_network_buffer();
+
+    public:
+        std::vector<NeuralNetwork *> neural_networks;
+        taskData_t taskData;
+        NetworksContainer();
         void init_networks();
         void load_input_data(const char* filename);
         void update_networks();
@@ -34,7 +36,8 @@ class NetworksContainer {
         task_data_transform_t *get_task_data_transform();
         neural_network_transform_t *get_transforms();
         int get_transforms_size();
-
+        int get_shared_memory_per_network();
+        std::vector<NeuralNetwork *> *get_neural_networks_storage();
 };
 
 #endif

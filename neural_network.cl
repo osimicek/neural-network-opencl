@@ -378,9 +378,7 @@ void importDataStructures(__global neural_network_transform_t *neural_network_tr
                                     (neural_network_buffer + neural_network_transform->state_b_offset_errors),
                                     neural_network_transform->state_b_size_errors, 0);
     wait_group_events(1, &e3);
-    if (lid == 0) {
-        neuralNetwork->currentSquareErrorCounter = neural_network_transform->neuralNetwork_currentSquareErrorCounter;
-    }
+    neuralNetwork->currentSquareErrorCounter = neural_network_transform->neuralNetwork_currentSquareErrorCounter;
     neuralNetwork->bestSquareError[0] = neural_network_transform->neuralNetwork_bestSquareError[0];
     neuralNetwork->bestSquareError[1] = neural_network_transform->neuralNetwork_bestSquareError[1];
     neuralNetwork->squareErrorHistory = (neural_network_buffer + neural_network_transform->neuralNetwork_b_offset_squareErrorHistory);
@@ -419,9 +417,8 @@ void exportDataStructures(__global neural_network_transform_t *neural_network_tr
                                         neuralNetwork->state.errors,
                                         neural_network_transform->state_b_size_errors, 0);
     wait_group_events(1, &e3);
-    if (lid == 0) {
-        neural_network_transform->neuralNetwork_currentSquareErrorCounter = neuralNetwork->currentSquareErrorCounter;
-    }
+    neural_network_transform->neuralNetwork_currentSquareErrorCounter = neuralNetwork->currentSquareErrorCounter;
+
     neural_network_transform->neuralNetwork_bestSquareError[0] = neuralNetwork->bestSquareError[0];
     neural_network_transform->neuralNetwork_bestSquareError[1] = neuralNetwork->bestSquareError[1];
 }
@@ -457,7 +454,7 @@ __kernel void run_neural_network(
             while (getLearningVector(&neuralNetwork, &taskData, expectedOutput)) {
                 neuralLearnCycle(&neuralNetwork, expectedOutput, lid);
                 cycle_counter++;
-                if (cycle_counter > 100) {
+                if (cycle_counter > 10000) {
                     exportDataStructures(neural_network_transform, neural_network_buffer, task_data_buffer, &neuralNetwork, &taskData);
                     return;
                 }
@@ -467,14 +464,13 @@ __kernel void run_neural_network(
                 // }
             }
             // if (lid == 0){
-                neuralNetwork.currentSquareErrorCounter = 0.f;
             // }
 
 
             while (getTestVector(&neuralNetwork, &taskData, expectedOutput)) {
                 neuralTestCycle(&neuralNetwork, expectedOutput, lid);
                 cycle_counter++;
-                if (cycle_counter > 100) {
+                if (cycle_counter > 10000) {
                     exportDataStructures(neural_network_transform, neural_network_buffer, task_data_buffer, &neuralNetwork, &taskData);
                     return;
                 }
@@ -487,6 +483,7 @@ __kernel void run_neural_network(
                                                                             neuralNetwork.currentSquareErrorCounter / (neuralNetwork.setup.layers[neuralNetwork.setup.numOfLayers - 1] *
                                                                             taskData.totalTestLines);
             findAndSetBestSquareError(&neuralNetwork);
+            neuralNetwork.currentSquareErrorCounter = 0.f;
             neuralNetwork.state.learningLine = 0;
             neuralNetwork.state.testLine = 0;
             // break;

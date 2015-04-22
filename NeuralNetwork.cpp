@@ -217,8 +217,10 @@ void NeuralNetwork::init(neural_network_transform_t *transform, void *neural_net
     }
     
     this->bestSquareError[0] = -1.f;
-    this->bestSquareError[1] = 1.f;
+    this->bestSquareError[1] = -1.f;
     this->currentSquareErrorCounter = 0.0f;
+    this->state.learningLine = 0;
+    this->state.testLine = 0;
 
     int numOfValues = 0;
     for (int i = 0; i < this->setup.numOfLayers; i++) {
@@ -281,6 +283,13 @@ void NeuralNetwork::set_output_layer(int neurons) {
 }
 
 /**
+ * Sets learning factor for neural network.
+ */
+void NeuralNetwork::set_learning_factor(float learning_factor) {
+    this->setup.learningFactor = learning_factor;
+}
+
+/**
  * Returns required ammout of shared memory.
  */
 int NeuralNetwork::get_required_shared_memory_size() {
@@ -291,5 +300,12 @@ int NeuralNetwork::get_required_shared_memory_size() {
     // number of layers + values + errors + maxEpochs
     // number of values == num of errors
     return this->setup.numOfLayers + numOfValues + numOfValues + this->criteria.maxEpochs;
+}
+
+/**
+ * Returns best squer error of neural network
+ */
+float NeuralNetwork::get_best_square_error() {
+    return this->bestSquareError[1];
 }
   

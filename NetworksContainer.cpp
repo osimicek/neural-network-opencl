@@ -10,7 +10,7 @@
  * creation of common buffer for OpenCL usage.
  */
 NetworksContainer::NetworksContainer() {
-    this->container_size = 32;
+    this->container_size = 256;
     this->transforms = (neural_network_transform_t *) _mm_malloc(container_size * sizeof(neural_network_transform_t), MEMORY_ALIGN);
     for (int i = 0; i < container_size; i++) {
         this->neural_networks_storage.push_back(new NeuralNetwork);
@@ -230,4 +230,17 @@ neural_network_transform_t *NetworksContainer::get_transforms() {
  */
 int NetworksContainer::get_transforms_size() {
     return this->neural_network_transforms_size;
+}
+
+/**
+ * Returns required size of shared memory.
+ */
+int NetworksContainer::get_shared_memory_per_network() {
+    return this->shared_memory_per_network;
+}
+/**
+ * Returns required size of shared memory.
+ */
+std::vector<NeuralNetwork *> * NetworksContainer::get_neural_networks_storage() {
+    return &this->neural_networks_storage;
 }

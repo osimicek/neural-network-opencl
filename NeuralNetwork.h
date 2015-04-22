@@ -93,14 +93,17 @@ typedef struct {
 } neural_network_transform_t;
 
 class NeuralNetwork {
+    private:
+        bool allocatedLayers;
+        void init_weights(int length);
+
     public:
         setup_t setup;
         criteria_t criteria;
         state_t state;
-        float currentSquareErrorCounter;
-        float bestSquareError[2];
         float *squareErrorHistory;
-        bool allocatedLayers;
+        float bestSquareError[2];
+        float currentSquareErrorCounter;
         NeuralNetwork();
         ~NeuralNetwork();
         void print(float *expectedOutput);
@@ -112,13 +115,14 @@ class NeuralNetwork {
                         void * neural_network_buffer,
                         void *task_data_buffer,
                         taskData_t *taskData);
-        void init_weights(int length);
         void init(neural_network_transform_t *transform, void *neural_network_buffer);
         void set_hidden_layers(int numberOfHiddenLayers, int numberOfNeuronsPerLayer);
         void set_input_layer(int neurons);
         void set_output_layer(int neurons);
+        void set_learning_factor(float learning_factor);
         int get_required_buffer_size();
         int get_required_shared_memory_size();
+        float get_best_square_error();
 };
 
 #endif

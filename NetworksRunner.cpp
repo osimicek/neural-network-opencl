@@ -4,7 +4,7 @@
 /**
  * Prepares context and compiles kernel.
  */
-NetworksRunner::NetworksRunner(NetworksContainer *networks_container) {
+NetworksRunner::NetworksRunner(NetworksContainer *container):networks_container(container) {
     cl_int status;
     this->buf_taskdata = NULL;
     Device device = OpenclHelper::get_device(0, 0);
@@ -28,7 +28,7 @@ NetworksRunner::NetworksRunner(NetworksContainer *networks_container) {
      */
     std::vector<std::string> codes;
     codes.push_back(knl_text);
-    Program program = OpenclHelper::build_program(*this->ctx, codes, (std::string("-DSHARED_MEMORY_SIZE=") + std::to_string(networks_container->shared_memory_per_network)).c_str());
+    Program program = OpenclHelper::build_program(*this->ctx, codes, (std::string("-DSHARED_MEMORY_SIZE=") + std::to_string(this->networks_container->get_shared_memory_per_network())).c_str());
     /**
      * Get kernel
      */
@@ -48,13 +48,13 @@ NetworksRunner::~NetworksRunner() {
 /**
  * Sends taskData to device.
  */
-void NetworksRunner::write_task_data(NetworksContainer *networks_container) {
+void NetworksRunner::write_task_data() {
     cl_int status;
     if (this->buf_taskdata != NULL) {
         delete this->buf_taskdata;
     }
-    this->task_data_buffer = networks_container->get_task_data_buffer();
-    this->task_data_buffer_size = networks_container->get_task_data_buffer_size();
+    this->task_data_buffer = this->networks_container->get_task_data_buffer();
+    this->task_data_buffer_size = this->networks_container->get_task_data_buffer_size();
 
     this->buf_taskdata = new Buffer(*this->ctx,
                                     CL_MEM_READ_ONLY ,
@@ -89,17 +89,17 @@ bool NetworksRunner::has_all_finished(neural_network_transform_t * transforms, i
 /**
  * Runs neural networks from container on GPU device.
  */
-void NetworksRunner::run_networks(NetworksContainer *networks_container) {
+void NetworksRunner::run_networks() {
     cl_int status;
-    networks_container->init_networks();
+    this->networks_container->init_networks();
 
-    void *neural_network_buffer = networks_container->get_neural_network_buffer();
-    int neural_network_buffer_size = networks_container->get_neural_network_buffer_size();
+    void *neural_network_buffer = this->networks_container->get_neural_network_buffer();
+    int neural_network_buffer_size = this->networks_container->get_neural_network_buffer_size();
 
-    task_data_transform_t *task_data_transform = networks_container->get_task_data_transform();
-    neural_network_transform_t * transforms = networks_container->get_transforms();
-    int transforms_size = networks_container->get_transforms_size();
-    int number_of_networks = networks_container->get_number_of_neural_networks();
+    task_data_transform_t *task_data_transform = this->networks_container->get_task_data_transform();
+    neural_network_transform_t * transforms = this->networks_container->get_transforms();
+    int transforms_size = this->networks_container->get_transforms_size();
+    int number_of_networks = this->networks_container->get_number_of_neural_networks();
     if (number_of_networks == 0) {
         return;
     }
@@ -183,7 +183,7 @@ void NetworksRunner::run_networks(NetworksContainer *networks_container) {
     int global_z = (global_y - 1) / 256 + 1;
     global_y = (global_y - 1) % 256 + 1;
     std::cout << global_y << " x " << global_z << std::endl;
-    std::cout << "okk3 " <<sizeof(neural_network_transform_t)  <<std::endl << std::flush;
+    std::cout << "number of networks " << number_of_networks <<std::endl << std::flush;
     // return;
     while(!this->has_all_finished(transforms, number_of_networks)) {
         status = this->queue->enqueueNDRangeKernel(*this->knl,
@@ -213,25 +213,29 @@ void NetworksRunner::run_networks(NetworksContainer *networks_container) {
                                                 neural_network_buffer);
     CHECK_CL_ERROR(status, "cl::Queue.enqueueReadBuffer ()"); 
 
-    networks_container->update_networks();
+    this->networks_container->update_networks();
 
 
     // return 0;
-    networks_container->neural_networks[0]->print(networks_container->taskData.learningOutputs);
-    networks_container->neural_networks[1]->print(networks_container->taskData.learningOutputs);
-    std::cout << "currentSquareErrorCounter " << networks_container->neural_networks[0]->currentSquareErrorCounter<<std::endl;
-    for (int i = 0; i < networks_container->neural_networks[0]->criteria.maxEpochs; i++) {
-        std::cout << networks_container->neural_networks[0]->squareErrorHistory[i] << " ";
-    }
-    std::cout << std::endl;
-    for (int i = 0; i < networks_container->neural_networks[0]->criteria.maxEpochs; i++) {
-        std::cout << networks_container->neural_networks[1]->squareErrorHistory[i] << " ";
-    }
-    std::cout<< std::endl << " / "<< networks_container->neural_networks[0]->state.learningLine<< std::endl;
-    std::cout << "lay "<< networks_container->neural_networks[0]->setup.numOfLayers << std::endl;
-    std::cout << ((float*)neural_network_buffer)[0] << std::endl;
-    std::cout << ((float*)neural_network_buffer)[1] <<  " " << transforms->neuralNetwork_b_size <<std::endl;
-    std::cout << ((float*)neural_network_buffer)[2] << " " << neural_network_buffer_size / 4 << std::endl;
-    std::cout << ((float*)neural_network_buffer)[5] << std::endl;
-    std::cout << ((float*)neural_network_buffer)[255] << std::endl << std::flush;
+    // this->networks_container->neural_networks[0]->print(this->networks_container->taskData.learningOutputs);
+    // this->networks_container->neural_networks[1]->print(this->networks_container->taskData.learningOutputs);
+    // std::cout << "currentSquareErrorCounter " << this->networks_container->neural_networks[0]->currentSquareErrorCounter<<std::endl;
+    // for (int i = 0; i < this->networks_container->neural_networks[0]->criteria.maxEpochs; i++) {
+    //     std::cout << this->networks_container->neural_networks[0]->squareErrorHistory[i] << " ";
+    // }
+    // std::cout << std::endl;
+    // for (int i = 0; i < this->networks_container->neural_networks[0]->criteria.maxEpochs; i++) {
+    //     std::cout << this->networks_container->neural_networks[1]->squareErrorHistory[i] << " ";
+    // }
+    // std::cout << std::endl;
+    // for (int i = 0; i < this->networks_container->neural_networks[0]->criteria.maxEpochs; i++) {
+    //     std::cout << this->networks_container->neural_networks[7]->squareErrorHistory[i] << " ";
+    // }
+    // std::cout<< std::endl << " / "<< this->networks_container->neural_networks[0]->state.learningLine<< std::endl;
+    // std::cout << "lay "<< this->networks_container->neural_networks[0]->setup.numOfLayers << std::endl;
+    // std::cout << ((float*)neural_network_buffer)[0] << std::endl;
+    // std::cout << ((float*)neural_network_buffer)[1] <<  " " << transforms->neuralNetwork_b_size <<std::endl;
+    // std::cout << ((float*)neural_network_buffer)[2] << " " << neural_network_buffer_size / 4 << std::endl;
+    // std::cout << ((float*)neural_network_buffer)[5] << std::endl;
+    // std::cout << ((float*)neural_network_buffer)[255] << std::endl << std::flush;
 }
