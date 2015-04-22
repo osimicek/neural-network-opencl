@@ -244,14 +244,14 @@ namespace optimized {
             }
             // std::cout << value << " ";
 
-            if (expectedOutput[neuron] - cmpValue) {
+            // if (expectedOutput[neuron] - cmpValue) {
                 // std::cout << "chyba u " << neuron << " " << value << std::endl;
                 float ex = 1.f / (1.f + exp(-neuralNetwork->setup.lambda * value));;
                 // std::cout << "velikost ch " << (expectedOutput[neuron] - value) * (ex * (1 - ex)) << " ex " << ex << std::endl;
                 errors[neuron + valueOffset] = (expectedOutput[neuron] - value) * (ex * (1 - ex));
-            } else {
-                errors[neuron + valueOffset] = 0.f;
-            }
+            // } else {
+            //     errors[neuron + valueOffset] = 0.f;
+            // }
             #if USE_PAPI_NEURAL_ROW_LEARN
             if (neuron == 0) {
                 (*papi_routines)["o_network_learning_neural_row_error_computation"].Stop();
@@ -392,6 +392,8 @@ namespace optimized {
         (*papi_routines)["o_network_testing_error_computation"].Start();
         #endif
         int numOfOutputNeurons = layers[numOfLayers - 1];
+        float predictionCandidateValue = -1.f;
+        int predictionCandidateIndex = 0;
         for (int neuron = 0; neuron < numOfOutputNeurons; neuron++) {
             #if USE_PAPI_NEURAL_ROW_TEST
             if (neuron == 0) {
@@ -405,9 +407,13 @@ namespace optimized {
                 // conversion to bool
                 int classValue = round(value);
                 #if !SHOW_CLASSIFICATION_ACCURANCY
-                if (classValue != expectedOutput[neuron]) {
-                    neuralNetwork->currentSquareErrorCounter += 1;
+                if (classValue == 1 && predictionCandidateValue < value) {
+                    predictionCandidateValue = value;
+                    predictionCandidateIndex = neuron;
                 }
+                // if (classValue != expectedOutput[neuron]) {
+                //     // neuralNetwork->currentSquareErrorCounter += 1;
+                // }
                 #endif
                 // neuralNetwork->currentSquareErrorCounter += diff * diff; 
                 #if SHOW_CLASSIFICATION_ACCURANCY

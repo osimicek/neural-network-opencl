@@ -187,7 +187,7 @@ void neuralLearnCycle(neuralNetwork_t *neuralNetwork,
     int followNeuron;
 
     float ex;
-    float classValue;
+    int classValue;
     float weightError;
 
 
@@ -215,17 +215,17 @@ void neuralLearnCycle(neuralNetwork_t *neuralNetwork,
     neurons = layers[numOfLayers - 1];
     if (neuron < neurons) {
         value = values[neuron + valueOffset];
-        classValue = value;
-        if (neuralNetwork->setup.classification) {
-            classValue = round(value);
-        }
+        // classValue = value;
+        // if (neuralNetwork->setup.classification) {
+        //     classValue = round(value);
+        // }
 
-        if (expectedOutput[neuron] - classValue) {
-            float ex = 1.f / (1.f + exp(-neuralNetwork->setup.lambda * value));;
+        // if (expectedOutput[neuron] - classValue) {
+            float ex = 1.f / (1.f + exp(-neuralNetwork->setup.lambda * value));
             errors[neuron + valueOffset] = (expectedOutput[neuron] - value) * (ex * (1 - ex));
-        } else {
-            errors[neuron + valueOffset] = 0;
-        }
+        // } else {
+        //     errors[neuron + valueOffset] = 0;
+        // }
     }
     barrier(CLK_LOCAL_MEM_FENCE);
 
@@ -294,7 +294,7 @@ void neuralTestCycle(neuralNetwork_t *neuralNetwork,
     int prevNeurons;
     int prevNeuron;
 
-    float classValue;
+    int classValue;
     float diff; 
 
     // foward value computation
@@ -317,22 +317,19 @@ void neuralTestCycle(neuralNetwork_t *neuralNetwork,
 
     // error of prediction
     neurons = layers[numOfLayers - 1];
-    // if (neuron == 0) { // meuron == work item
-        for (int neur = 0; neur < neurons; neur++) {
-            value = values[neur + valueOffset];
-           
-            if (neuralNetwork->setup.classification) {
-                // conversion to bool
-                classValue = round(value);
-                if (classValue != expectedOutput[neur]) {
-                    neuralNetwork->currentSquareErrorCounter += 1;
-                }
-            } else {
-                diff = expectedOutput[neur] - value;
-                neuralNetwork->currentSquareErrorCounter += diff * diff; 
-            }
+    float predictionCandidateValue = -1.f;
+    int predictionCandidateIndex = 0;
+    for (int neur = 0; neur < neurons; neur++) {
+        value = values[neur + valueOffset];
+        classValue = round(value);
+        if (classValue != 0 && predictionCandidateValue < value) {
+            predictionCandidateValue = value;
+            predictionCandidateIndex = neur;
         }
-    // }
+    }
+    if (expectedOutput[predictionCandidateIndex] != 1.f || predictionCandidateValue == -1.f) {
+        neuralNetwork->currentSquareErrorCounter += 1.f;
+    }
 }
 
 void importDataStructures(__global neural_network_transform_t *neural_network_transform,
