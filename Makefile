@@ -1,15 +1,19 @@
-EXECUTABLES = main
+EXECUTABLE = main
 
 CC= g++
-CPPFLAGS += -Wall -std=c++0x -lrt -lOpenCL -lglut -lGL -lGLU 
+CPPFLAGS += -Wall -O3 -std=c++0x -lrt -lOpenCL -lglut -lGL -lGLU 
 
-neuralnetwork_obj :=    OpenclHelper.o \
+neuralnetwork_obj =    OpenclHelper.o \
 						NeuralNetwork.o \
 						NetworksContainer.o \
 						NetworksRunner.o \
 						GeneticAlgorithm.o \
 
-all: $(EXECUTABLES)
+tests_obj =      	$(neuralnetwork_obj)\
+					neural_network_c/naiveNeuralNetwork.o\
+					neural_network_c/optimizedNeuralNetwork.o\
+
+all: $(EXECUTABLE)
 
 intel: $(neuralnetwork_obj) main.o
 	$(CC) $(neuralnetwork_obj) main.o -o  main $(CPPFLAGS)
@@ -21,8 +25,12 @@ ifdef OPENCL_LIB
   CL_LDFLAGS = -L$(OPENCL_LIB)
 endif
 
-main: $(neuralnetwork_obj) $(EXECUTABLES).o
-	$(CC) $(neuralnetwork_obj) $(EXECUTABLES).o -o  $(EXECUTABLES) $(CPPFLAGS)
+main: $(neuralnetwork_obj) $(EXECUTABLE).o
+	$(CC) $(neuralnetwork_obj) $(EXECUTABLE).o -o  $(EXECUTABLE) $(CPPFLAGS)
+
+tests: $(tests_obj) tests.o
+	$(CC) $(tests_obj) tests.o -o  tests $(CPPFLAGS)
+	./tests
 
 run:
 	./main
@@ -30,4 +38,4 @@ run:
 try: clean all run
 
 clean:
-	rm -f $(EXECUTABLES) *.o
+	rm -f $(EXECUTABLE) tests *.o neural_network_c/*.o
