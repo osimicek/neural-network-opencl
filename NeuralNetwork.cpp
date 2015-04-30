@@ -4,6 +4,7 @@
 #include "NeuralNetwork.h"
 
 #define MEMORY_ALIGN 128
+#define OPENCL_MEMORY_ALIGN 5 // 2**OPENCL_MEMORY_ALIGN * sizeof(float)
 
 
 using namespace std;
@@ -19,7 +20,7 @@ NeuralNetwork::NeuralNetwork() {
     this->setup.learningFactor = 0.4f;
     // this->setup.numOfLayers = 4;
     // int tmpLayers[] = {-1, 9, 9, -1};
-    this->set_hidden_layers(1, 10);
+    this->set_hidden_layers(2,11);
 
     this->setup.minOutputValue = 0.f;
     this->setup.maxOutputValue = 1.f;
@@ -88,13 +89,16 @@ void NeuralNetwork::print(float *expectedOutput) {
     for (int layer = 1; layer < numOfLayers; layer++) {
         int neurons = layers[layer];
         int prevNeurons = layers[layer - 1];
+        int prev_rounded_layer_size = (((layers[layer - 1] - 1) >> OPENCL_MEMORY_ALIGN) + 1) << OPENCL_MEMORY_ALIGN;
         printf("\t");
         for (int neuron = 0; neuron < neurons; neuron++) {
             for (int prevNeuron = 0; prevNeuron < prevNeurons; prevNeuron++) {
                 printf("%0.1f ",  weights[weightOffset + prevNeuron]);
+                // printf("neur %d ",  weightOffset + prevNeuron);
             }
             printf("| ");
-            weightOffset += prevNeurons;
+            weightOffset += prev_rounded_layer_size;
+            // weightOffset += prevNeurons;
         }
         printf("\n");
     }
@@ -181,8 +185,19 @@ void NeuralNetwork::export_net(neural_network_transform_t *transform, void * neu
  */
 void NeuralNetwork::init_weights(int length) {
     srand(37);
-    for (int i = 0; i < length; i++) {
-        this->state.weights[i] = (rand() % 100 + 1) / 100.f;
+    int *layers = this->setup.layers;
+    int weightOffset = 0;
+    for (int layer = 1; layer < this->setup.numOfLayers; layer++) {
+        int neurons = layers[layer];
+        int prevNeurons = layers[layer - 1];
+        int prev_rounded_layer_size = (((layers[layer - 1] - 1) >> OPENCL_MEMORY_ALIGN) + 1) << OPENCL_MEMORY_ALIGN;
+        for (int neuron = 0; neuron < neurons; neuron++) {
+            for (int prevNeuron = 0; prevNeuron < prevNeurons; prevNeuron++) {
+                this->state.weights[weightOffset + prevNeuron] = (rand() % 100 + 1) / 100.f - 0.5;
+                // printf("neur %0.1f ",  this->state.weights[weightOffset + prevNeuron]);
+            }
+            weightOffset += prev_rounded_layer_size;
+        }
     }
 }
 
@@ -194,7 +209,8 @@ int NeuralNetwork::get_required_buffer_size() {
     int numOfWeights = 0;
     int *layers = this->setup.layers;
     for (int i = 1; i < this->setup.numOfLayers; i++) {
-        numOfWeights += layers[i] * layers[i - 1];
+        int prev_rounded_layer_size = (((layers[i - 1] - 1) >> OPENCL_MEMORY_ALIGN) + 1) << OPENCL_MEMORY_ALIGN;
+        numOfWeights += layers[i] * prev_rounded_layer_size;
     }
 
     int numOfValues = 0;
@@ -202,6 +218,8 @@ int NeuralNetwork::get_required_buffer_size() {
         numOfValues += layers[i];
     }
     int numOfSquareErrorHistory = this->criteria.maxEpochs;
+    // std::cout << "required buff "<<  (numOfWeights + numOfValues + numOfValues +
+    //         numOfSquareErrorHistory + this->setup.numOfLayers) << std::endl;
     return (numOfWeights + numOfValues + numOfValues +
             numOfSquareErrorHistory + this->setup.numOfLayers);
 }
@@ -213,7 +231,9 @@ void NeuralNetwork::init(neural_network_transform_t *transform, void *neural_net
     int numOfWeights = 0;
     int *layers = this->setup.layers;
     for (int i = 1; i < this->setup.numOfLayers; i++) {
-        numOfWeights += layers[i] * layers[i - 1];
+        int prev_rounded_layer_size = (((layers[i - 1] - 1) >> OPENCL_MEMORY_ALIGN) + 1) << OPENCL_MEMORY_ALIGN;
+        prev_rounded_layer_size = (((prev_rounded_layer_size - 1) >> OPENCL_MEMORY_ALIGN) + 1) << OPENCL_MEMORY_ALIGN;
+        numOfWeights += layers[i] * prev_rounded_layer_size;
     }
     
     this->bestSquareError[0] = -1.f;
@@ -266,6 +286,13 @@ void NeuralNetwork::set_hidden_layers(int numberOfHiddenLayers, int numberOfNeur
     for (int layer = 1; layer < 1 + numberOfHiddenLayers; layer++) {
         this->setup.layers[layer] = numberOfNeuronsPerLayer;
     }
+}
+
+/**
+ * Sets maximum of epochs
+ */
+void NeuralNetwork::set_max_epochs(int epochs) {
+    this->criteria.maxEpochs = epochs;
 }
 
 /**

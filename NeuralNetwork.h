@@ -1,6 +1,7 @@
 #ifndef NEURAL_NETWORK_H
 #define NEURAL_NETWORK_H
 
+
 /**
  * Stores task data.
  */
@@ -117,6 +118,7 @@ class NeuralNetwork {
                         taskData_t *taskData);
         void init(neural_network_transform_t *transform, void *neural_network_buffer);
         void set_hidden_layers(int numberOfHiddenLayers, int numberOfNeuronsPerLayer);
+        void set_max_epochs(int epochs);
         void set_input_layer(int neurons);
         void set_output_layer(int neurons);
         void set_learning_factor(float learning_factor);
