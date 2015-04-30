@@ -9,6 +9,7 @@ class GeneticAlgorithm {
         float best_measure;
         int best_number_of_neurons;
         int best_number_of_hidden_layers;
+        int number_of_elite;
         float best_learning_factor;
     public:
         NetworksContainer *networks_container;

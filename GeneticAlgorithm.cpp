@@ -1,4 +1,5 @@
 #include <iostream>
+#include <algorithm>
 #include <math.h>
 #include "GeneticAlgorithm.h"
 
@@ -18,9 +19,10 @@ GeneticAlgorithm::GeneticAlgorithm( NetworksContainer *container,
                                     NetworksRunner *runner):networks_container(container),networks_runner(runner) {
     this->generation = 0;
     this->population_size = container->size();
-    this->max_generations = 1000;
+    this->max_generations = 1;
     this->reproduction_probability = 0.9;
-    this->mutation_probability = 0.15;
+    this->mutation_probability = 0.05;
+    this->number_of_elite = 2; // elitism
 }
 
 void GeneticAlgorithm::init() {
@@ -216,6 +218,17 @@ void GeneticAlgorithm::evolution() {
         evolution_fitnesses.push_back(this->fitnesses[i]);
         evolution_chromosomes.push_back(&(*it));
         it++;
+    }
+
+    for (int elite_pair = 0; elite_pair < this->number_of_elite; elite_pair += 2) {
+        uint best_index =  std::max_element(evolution_fitnesses.begin(), evolution_fitnesses.end()) - evolution_fitnesses.begin();
+        printf("Max: %d\n", best_index);
+        evolution_fitnesses.erase(evolution_fitnesses.begin() + best_index);
+        evolution_chromosomes.erase(evolution_chromosomes.begin() + best_index);
+        best_index =  std::max_element(evolution_fitnesses.begin(), evolution_fitnesses.end()) - evolution_fitnesses.begin();
+        printf("Max: %d\n", best_index);
+        evolution_fitnesses.erase(evolution_fitnesses.begin() + best_index);
+        evolution_chromosomes.erase(evolution_chromosomes.begin() + best_index);
     }
 
     while(this->choose_chromosome(&evolution_chromosomes, &evolution_fitnesses, &chromosomeA) &&
