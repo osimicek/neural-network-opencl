@@ -31,6 +31,7 @@ class NetworksContainer {
         void *get_task_data_buffer();
         int get_neural_network_buffer_size();
         int get_task_data_buffer_size();
+        int set_size(int size);
         int size();
         int get_number_of_neural_networks();
         task_data_transform_t *get_task_data_transform();
