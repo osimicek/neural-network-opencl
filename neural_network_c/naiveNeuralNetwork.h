@@ -33,7 +33,7 @@ struct State {
     int learningLine;
 };
 
-struct NeuralNetwork {
+struct NeuralNetworkT {
     Setup setup;
     Criteria criteria;
     State state;
@@ -43,15 +43,15 @@ struct NeuralNetwork {
     int *classificationAccurancyHistory;
 };
 namespace naive {
-    void runNaiveNeuralNetwork(NeuralNetwork *neuralNetwork, const char* taskFilename);
+    void runNaiveNeuralNetwork(NeuralNetworkT *neuralNetwork, const char* taskFilename);
     void printClassificationAccurancy(int *accurancy, int numOfNeurons);
     void initAccurancy(int *accurancy, int length);
-    void findAndSetBestSquareError(NeuralNetwork *neuralNetwork);
-    float squareErrorSum(NeuralNetwork *neuralNetwork);
+    void findAndSetBestSquareError(NeuralNetworkT *neuralNetwork);
+    float squareErrorSum(NeuralNetworkT *neuralNetwork);
 
-    bool getLearningVector(NeuralNetwork *neuralNetwork, TaskData *taskData, float *expectedOutput);
-    bool getTestVector(NeuralNetwork *neuralNetwork, TaskData *taskData, float *expectedOutput);
-    void loadInputData(const char* filename, NeuralNetwork *neuralNetwork, TaskData *taskData);
+    bool getLearningVector(NeuralNetworkT *neuralNetwork, TaskData *taskData, float *expectedOutput);
+    bool getTestVector(NeuralNetworkT *neuralNetwork, TaskData *taskData, float *expectedOutput);
+    void loadInputData(const char* filename, NeuralNetworkT *neuralNetwork, TaskData *taskData);
     void deleteTaskData(TaskData *taskData);
 }
 #endif

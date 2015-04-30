@@ -6,7 +6,6 @@
 #include <algorithm>
 #include <mm_malloc.h>
 #include "initPapi.h"
-#include "naiveNeuralNetwork.h"
 #include "optimizedNeuralNetwork.h"
 using namespace naive;
 
@@ -40,7 +39,7 @@ namespace optimized {
      *
      */
 
-    void printNeuralNetwork(NeuralNetwork *neuralNetwork, float *expectedOutput) {
+    void printNeuralNetwork(NeuralNetworkT *neuralNetwork, float *expectedOutput) {
         int numOfLayers = neuralNetwork->setup.numOfLayers;
         int *layers = neuralNetwork->setup.layers;
         float *values = neuralNetwork->state.values;
@@ -68,7 +67,7 @@ namespace optimized {
             printf("\t");
             for (int neuron = 0; neuron < neurons; neuron++) {
                 for (int prevNeuron = 0; prevNeuron < prevNeurons; prevNeuron++) {
-                    printf("%0.1f ",  weights[weightOffset + prevNeuron]);
+                    printf("%0.2f ",  weights[weightOffset + prevNeuron]);
                 }
                 printf("| ");
                 weightOffset += prevNeurons;
@@ -107,7 +106,7 @@ namespace optimized {
     void initWeights(float *weights, int length) {
         srand(37);
         for (int i = 0; i < length; i++) {
-            weights[i] = (rand() % 100 + 1) / 100.f;
+            weights[i] = (rand() % 100 + 1) / 100.f - 0.5;
         }
     }
 
@@ -116,7 +115,7 @@ namespace optimized {
     /**
      * Returns sum of squareErrors
      */
-    float squareErrorSum(NeuralNetwork *neuralNetwork) {
+    float squareErrorSum(NeuralNetworkT *neuralNetwork) {
         float sum = 0.0f;
         for (int i = 0; i <= neuralNetwork->state.epoch; i++) {
             sum += neuralNetwork->squareErrorHistory[i];
@@ -130,7 +129,7 @@ namespace optimized {
     /**
      * Initialization of neural network
      */
-    void initNeuralNetwork(NeuralNetwork *neuralNetwork) {
+    void initNeuralNetwork(NeuralNetworkT *neuralNetwork) {
         int numOfWeights = 0;
         for (int i = 1; i < neuralNetwork->setup.numOfLayers; i++) {
             numOfWeights += neuralNetwork->setup.layers[i] * neuralNetwork->setup.layers[i - 1];
@@ -162,7 +161,7 @@ namespace optimized {
     /**
      * Frees alocated memory
      */
-    void deleteNeuralNetwork(NeuralNetwork *neuralNetwork) {
+    void deleteNeuralNetwork(NeuralNetworkT *neuralNetwork) {
         free(neuralNetwork->state.weights);
         free(neuralNetwork->state.values);
         free(neuralNetwork->state.errors);
@@ -180,7 +179,7 @@ namespace optimized {
      * Output vector si compared with expected output and error is backpropagated throw net and
      * weights are modified.
      */
-    void neuralLearnCycle(NeuralNetwork *neuralNetwork, 
+    void neuralLearnCycle(NeuralNetworkT *neuralNetwork, 
                     float *expectedOutput) {
         int numOfLayers = neuralNetwork->setup.numOfLayers;
         int * __restrict layers = neuralNetwork->setup.layers;
@@ -211,9 +210,10 @@ namespace optimized {
                 #pragma ivdep
                 for (int prevNeuron = 0; prevNeuron < prevNeurons; prevNeuron++) {
                     value += values[prevNeuron + prevValueOffset] * weights[prevNeuron + weightOffset];
+                    // std::cout << "waatch " << prevNeuron + prevValueOffset <<" * " << prevNeuron + weightOffset << "      "<< prevValueOffset<< std::endl;
                 }
                 // std::cout << value << "  ";
-                values[neuron + valueOffset] = 1. / (1. + exp(-neuralNetwork->setup.lambda * value));
+                values[neuron + valueOffset] = 1. / (1. + exp(-value));
                 #if USE_PAPI_NEURAL_ROW_LEARN
                 if (neuron == 0) {
                     (*papi_routines)["o_network_learning_neural_row_foward_computation"].Stop();
@@ -246,11 +246,11 @@ namespace optimized {
 
             // if (expectedOutput[neuron] - cmpValue) {
                 // std::cout << "chyba u " << neuron << " " << value << std::endl;
-                float ex = 1.f / (1.f + exp(-neuralNetwork->setup.lambda * value));;
+                // float ex = 1.f / (1.f + exp(-neuralNetwork->setup.lambda * value));;
                 // std::cout << "velikost ch " << (expectedOutput[neuron] - value) * (ex * (1 - ex)) << " ex " << ex << std::endl;
-                errors[neuron + valueOffset] = (expectedOutput[neuron] - value) * (ex * (1 - ex));
+                errors[neuron + valueOffset] = (expectedOutput[neuron] - value) * (value * (1 - value));
             // } else {
-            //     errors[neuron + valueOffset] = 0.f;
+                // errors[neuron + valueOffset] = 0.f;
             // }
             #if USE_PAPI_NEURAL_ROW_LEARN
             if (neuron == 0) {
@@ -276,21 +276,23 @@ namespace optimized {
                 #pragma ivdep
                 for (int followNeuron = 0; followNeuron < followNeurons; followNeuron++) {
                     weightError += errors[followNeuron + followValueOffset] *
-                                  weights[followNeuron + weightOffset];
+                                  weights[neuron + followNeuron * neurons + weightOffset];
+                    // std::cout << "waatch " <<followValueOffset<< " "<< neuron + weightOffset + followNeuron * neurons << "       " << errors[followNeuron + followValueOffset] <<" * " <<weights[neuron + followNeuron * neurons + weightOffset]<< " = " << weightError<< std::endl;
                 }
-                weightOffset += followNeurons;
+                // je potreba razantne snizit vahy prvni vrstvy, proce se tak nedeje samo?
+
                 float value = values[neuron + valueOffset];
-                float ex = exp(-neuralNetwork->setup.lambda*value);
-                errors[neuron + valueOffset] = weightError * (ex * (1 - ex));
+                // float ex = exp(-value);
+                errors[neuron + valueOffset] = weightError * (value * (1 - value));
                 #if USE_PAPI_NEURAL_ROW_LEARN
                 if (neuron == 0) {
                     (*papi_routines)["o_network_learning_neural_row_error_computation"].Stop();
                 }
                 #endif
             }
-            weightOffset -= neurons * followNeurons;
             followValueOffset -= neurons;
         }
+        // return;
         #if USE_PAPI_LEARN_DETAIL
         (*papi_routines)["o_network_learning_error_computation"].Stop();
         #endif
@@ -316,6 +318,7 @@ namespace optimized {
                     weights[prevNeuron + weightOffset] = weights[prevNeuron + weightOffset] +
                                                          neuralNetwork->setup.learningFactor * values[prevNeuron + valueOffset] *
                                                          errors[neuron + valueOffset + prevNeurons];
+                    // std::cout << "waatch " << prevNeuron + weightOffset << "      "<< prevNeuron + valueOffset << "  "<< neuron + valueOffset + prevNeurons<< std::endl;
                 }
                 #if USE_PAPI_NEURAL_ROW_LEARN
                 if (neuron == 0) {
@@ -339,7 +342,7 @@ namespace optimized {
      * Performs a test cycle of neural network. Input vector is transformed to output vector.
      * Output vector si compared with expected output. Accurancy is counted from this error.
      */
-    void neuralTestCycle(NeuralNetwork *neuralNetwork, 
+    void neuralTestCycle(NeuralNetworkT *neuralNetwork, 
                     float *expectedOutput) {
         
         int numOfLayers = neuralNetwork->setup.numOfLayers;
@@ -369,9 +372,10 @@ namespace optimized {
                 #pragma ivdep
                 for (int prevNeuron = 0; prevNeuron < prevNeurons; prevNeuron++) {
                     value += values[prevNeuron + prevValueOffset] * weights[prevNeuron + weightOffset];
+                    // std::cout << "waatch " << prevNeuron + prevValueOffset <<" * " << prevNeuron + weightOffset << "      "<< prevValueOffset<< std::endl;
                 }
                 // std::cout << value << "  ";
-                values[neuron + valueOffset] = 1.f / (1.f + exp(-neuralNetwork->setup.lambda * value));
+                values[neuron + valueOffset] = 1.f / (1.f + exp(-value));
                 #if USE_PAPI_NEURAL_ROW_TEST
                 if (neuron == 0) {
                     (*papi_routines)["o_network_testing_neural_row_foward_computation"].Stop();
@@ -406,38 +410,11 @@ namespace optimized {
             if (neuralNetwork->setup.classification) {
                 // conversion to bool
                 int classValue = round(value);
-                #if !SHOW_CLASSIFICATION_ACCURANCY
+
                 if (classValue == 1 && predictionCandidateValue < value) {
                     predictionCandidateValue = value;
                     predictionCandidateIndex = neuron;
                 }
-                // if (classValue != expectedOutput[neuron]) {
-                //     // neuralNetwork->currentSquareErrorCounter += 1;
-                // }
-                #endif
-                // neuralNetwork->currentSquareErrorCounter += diff * diff; 
-                #if SHOW_CLASSIFICATION_ACCURANCY
-                int pos = 4 * neuron + 4 * numOfOutputNeurons * neuralNetwork->state.epoch;
-                if (classValue == 1 && expectedOutput[neuron] == 1.f) {
-                    // true positive
-                    neuralNetwork->classificationAccurancyHistory[pos] += 1;
-                } else if (classValue == 1 && expectedOutput[neuron] == 0.f) {
-                    // true negative
-                    // diff = expectedOutput[neuron] - value;
-                    neuralNetwork->currentSquareErrorCounter += 1;
-
-                    neuralNetwork->classificationAccurancyHistory[pos + 1] += 1;
-                } else if (classValue == 0 && expectedOutput[neuron] == 1.f) {
-                    // false negative
-                    // diff = expectedOutput[neuron] - value;
-                    neuralNetwork->currentSquareErrorCounter += 1;
-
-                    neuralNetwork->classificationAccurancyHistory[pos + 2] += 1;
-                } else if (classValue == 0 && expectedOutput[neuron] == 0.f) {
-                    // false positive
-                    neuralNetwork->classificationAccurancyHistory[pos + 3] += 1; 
-                }
-                #endif
             } else {
                 diff = expectedOutput[neuron] - value;
                 neuralNetwork->currentSquareErrorCounter += diff * diff; 
@@ -449,6 +426,11 @@ namespace optimized {
             #endif
             
         }
+        if (neuralNetwork->setup.classification) {
+            if (expectedOutput[predictionCandidateIndex] != 1.f || predictionCandidateValue == -1.f) {
+                neuralNetwork->currentSquareErrorCounter += 1;
+            }
+        }
         #if USE_PAPI_LEARN_DETAIL
         (*papi_routines)["o_network_testing_error_computation"].Stop();
         #endif 
@@ -457,7 +439,7 @@ namespace optimized {
     /**
      * Performs trainign and testing of neural network.
      */
-    void runOptimizedNeuralNetwork(NeuralNetwork *neuralNetwork, const char* taskFilename) {
+    void runOptimizedNeuralNetwork(NeuralNetworkT *neuralNetwork, const char* taskFilename) {
         TaskData taskData;
 
         loadInputData(taskFilename, neuralNetwork, &taskData);
@@ -486,6 +468,11 @@ namespace optimized {
                 //     return;
                 // }
                 // counter ++;
+                // if (neuralNetwork->state.learningLine >= 1 && neuralNetwork->state.epoch >= 0) {
+                //     printNeuralNetwork(neuralNetwork, expectedOutput);
+                //     std::cout << "currentSquareErrorCounter " << neuralNetwork->currentSquareErrorCounter<<std::endl;
+                //     return;
+                // }
             }
             #if USE_PAPI_LEARN_AND_TEST
             (*papi_routines)["o_network_learning"].Stop();
@@ -500,6 +487,11 @@ namespace optimized {
             #endif
             while (getTestVector(neuralNetwork, &taskData, expectedOutput)) {
                 neuralTestCycle(neuralNetwork, expectedOutput);
+                // if (neuralNetwork->state.testLine > 1 && neuralNetwork->state.epoch >= 0) {
+                //     printNeuralNetwork(neuralNetwork, expectedOutput);
+                //     std::cout << "currentSquareErrorCounter " << neuralNetwork->currentSquareErrorCounter<<std::endl;
+                //     return;
+                // }
             }
             #if USE_PAPI_LEARN_AND_TEST
             (*papi_routines)["o_network_testing"].Stop();
@@ -508,24 +500,31 @@ namespace optimized {
             neuralNetwork->squareErrorHistory[neuralNetwork->state.epoch] = (neuralNetwork->setup.maxOutputValue - neuralNetwork->setup.minOutputValue) * neuralNetwork->currentSquareErrorCounter/ (neuralNetwork->setup.layers[neuralNetwork->setup.numOfLayers - 1] * taskData.totalTestLines);
             findAndSetBestSquareError(neuralNetwork);
             // std::cout << neuralNetwork->squareErrorHistory[neuralNetwork->state.epoch] << std::endl;
-            if (neuralNetwork->state.epoch > 0) {
-                generalizationLoss = neuralNetwork->squareErrorHistory[neuralNetwork->state.epoch] / neuralNetwork->bestSquareError[1] - 1;
-                progress = squareErrorSum(neuralNetwork) / ((neuralNetwork->state.epoch + 1) * neuralNetwork->bestSquareError[1]) - 1;
-                if (generalizationLoss > neuralNetwork->criteria.maxGeneralizationLoss || progress < neuralNetwork->criteria.minProgress) {
-                    // break;
-                }
-            }
+            // if (neuralNetwork->state.epoch > 0) {
+            //     generalizationLoss = neuralNetwork->squareErrorHistory[neuralNetwork->state.epoch] / neuralNetwork->bestSquareError[1] - 1;
+            //     progress = squareErrorSum(neuralNetwork) / ((neuralNetwork->state.epoch + 1) * neuralNetwork->bestSquareError[1]) - 1;
+            //     if (generalizationLoss > neuralNetwork->criteria.maxGeneralizationLoss || progress < neuralNetwork->criteria.minProgress) {
+            //         // break;
+            //     }
+            // }
             // std::cout << neuralNetwork->squareErrorHistory[neuralNetwork->state.epoch] << "  "<< neuralNetwork->bestSquareError[1]<< "\t"<< generalizationLoss << "\t\t"<< progress<< std::endl;
         }
+        // float x[2];
+        // printNeuralNetwork(neuralNetwork, x);
         neuralNetwork->state.epoch--;
-        printf("NN RESULT: Best avg err: %f Epochs: %f Learn factor: %f \n", neuralNetwork->bestSquareError[1], neuralNetwork->bestSquareError[0], neuralNetwork->setup.learningFactor);
+        printf("NN RESULT: Best avg err: %f Epoch: %f Learn factor: %f \n", neuralNetwork->bestSquareError[1], neuralNetwork->bestSquareError[0], neuralNetwork->setup.learningFactor);
         
         #if SHOW_CLASSIFICATION_ACCURANCY
         printClassificationAccurancy(&(neuralNetwork->classificationAccurancyHistory[4 * neuralNetwork->setup.layers[neuralNetwork->setup.numOfLayers - 1] * neuralNetwork->state.epoch]), neuralNetwork->setup.layers[neuralNetwork->setup.numOfLayers - 1]);
         #endif
+        std::cout << "ccurrentSquareErrorCounter " << neuralNetwork->currentSquareErrorCounter<<std::endl;
+        for (int i = 0; i < neuralNetwork->criteria.maxEpochs; i++) {
+            std::cout << neuralNetwork->squareErrorHistory[i] << " ";
+        }
+        std::cout<< std::endl;
 
-        deleteNeuralNetwork(neuralNetwork);
-        deleteTaskData(&taskData);
+        // deleteNeuralNetwork(neuralNetwork);
+        // deleteTaskData(&taskData);
         free(expectedOutput);
     }
 }

@@ -33,7 +33,7 @@ namespace naive {
      *
      */
 
-    void printNeuralNetwork(NeuralNetwork *neuralNetwork, float *expectedOutput) {
+    void printNeuralNetwork(NeuralNetworkT *neuralNetwork, float *expectedOutput) {
         int numOfLayers = neuralNetwork->setup.numOfLayers;
         int *layers = neuralNetwork->setup.layers;
         float *values = neuralNetwork->state.values;
@@ -127,7 +127,7 @@ namespace naive {
     /**
      * Finds lowest square error and sets it as the best one.
      */
-    void findAndSetBestSquareError(NeuralNetwork *neuralNetwork) {
+    void findAndSetBestSquareError(NeuralNetworkT *neuralNetwork) {
         neuralNetwork->bestSquareError[0] = 0;
         neuralNetwork->bestSquareError[1] = neuralNetwork->squareErrorHistory[0];
 
@@ -142,7 +142,7 @@ namespace naive {
     /**
      * Returns sum of squareErrors
      */
-    float squareErrorSum(NeuralNetwork *neuralNetwork) {
+    float squareErrorSum(NeuralNetworkT *neuralNetwork) {
         float sum = 0.0f;
         for (int i = 0; i <= neuralNetwork->state.epoch; i++) {
             sum += neuralNetwork->squareErrorHistory[i];
@@ -153,7 +153,7 @@ namespace naive {
     /**
      * Returns a learning vector for neural network.
      */
-    bool getLearningVector(NeuralNetwork *neuralNetwork, TaskData *taskData, float *expectedOutput) {
+    bool getLearningVector(NeuralNetworkT *neuralNetwork, TaskData *taskData, float *expectedOutput) {
 
         if (neuralNetwork->state.learningLine >= taskData->totalLearningLines) {
             return false;
@@ -172,7 +172,7 @@ namespace naive {
     /**
      * Returns a test vector for neural network.
      */
-    bool getTestVector(NeuralNetwork *neuralNetwork, TaskData *taskData, float *expectedOutput) {
+    bool getTestVector(NeuralNetworkT *neuralNetwork, TaskData *taskData, float *expectedOutput) {
 
         if (neuralNetwork->state.testLine >= taskData->totalTestLines) {
             return false;
@@ -191,7 +191,7 @@ namespace naive {
     /**
      * Reads and stores input vectors for learning and testing neural network.
      */
-    void loadInputData(const char* filename, NeuralNetwork *neuralNetwork, TaskData *taskData) {
+    void loadInputData(const char* filename, NeuralNetworkT *neuralNetwork, TaskData *taskData) {
         std::ifstream input(filename);
         
         int inputVectorSize, outputVectorSize, totalLearningLines, totalTestLines;
@@ -247,7 +247,7 @@ namespace naive {
     /**
      * Initialization of neural network
      */
-    void initNeuralNetwork(NeuralNetwork *neuralNetwork) {
+    void initNeuralNetwork(NeuralNetworkT *neuralNetwork) {
         int numOfWeights = 0;
         for (int i = 1; i < neuralNetwork->setup.numOfLayers; i++) {
             numOfWeights += neuralNetwork->setup.layers[i] * neuralNetwork->setup.layers[i - 1];
@@ -278,7 +278,7 @@ namespace naive {
     /**
      * Frees alocated memory
      */
-    void deleteNeuralNetwork(NeuralNetwork *neuralNetwork) {
+    void deleteNeuralNetwork(NeuralNetworkT *neuralNetwork) {
         free(neuralNetwork->state.weights);
         free(neuralNetwork->state.values);
         free(neuralNetwork->state.errors);
@@ -303,7 +303,7 @@ namespace naive {
      * Output vector si compared with expected output and error is backpropagated throw net and
      * weights are modified.
      */
-    void neuralLearnCycle(NeuralNetwork *neuralNetwork, 
+    void neuralLearnCycle(NeuralNetworkT *neuralNetwork, 
                     float *expectedOutput) {
         int numOfLayers = neuralNetwork->setup.numOfLayers;
         int *layers = neuralNetwork->setup.layers;
@@ -459,7 +459,7 @@ namespace naive {
      * Performs a test cycle of neural network. Input vector is transformed to output vector.
      * Output vector si compared with expected output. Accurancy is counted from this error.
      */
-    void neuralTestCycle(NeuralNetwork *neuralNetwork, 
+    void neuralTestCycle(NeuralNetworkT *neuralNetwork, 
                     float *expectedOutput) {
         
         int numOfLayers = neuralNetwork->setup.numOfLayers;
@@ -564,7 +564,7 @@ namespace naive {
     /**
      * Performs trainign and testing of neural network.
      */
-    void runNaiveNeuralNetwork(NeuralNetwork *neuralNetwork, const char* taskFilename) {
+    void runNaiveNeuralNetwork(NeuralNetworkT *neuralNetwork, const char* taskFilename) {
         TaskData taskData;
 
         loadInputData(taskFilename, neuralNetwork, &taskData);
