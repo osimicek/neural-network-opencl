@@ -4,7 +4,7 @@
 #ifdef __APPLE__
 #include <OpenCL/opencl.hpp>
 #else
-#include <CL/cl.hpp>
+#include "./cl.hpp"
 #endif
 
 using namespace std;
