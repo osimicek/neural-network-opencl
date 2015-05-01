@@ -1,10 +1,10 @@
 ERR = $(shell which icpc >/dev/null; echo $$?)
 ifeq "$(ERR)" "0"
     CXX = icpc
-    CPPFLAGS += -O3 -msse4.2 -qopt-report3
+    CPPFLAGS += -O3 -msse4.2 -std=c++0x -qopt-report3
 else
     CXX = g++
-    CPPFLAGS += -O3
+    CPPFLAGS += -O3 -std=c++0x
 endif
 
 
