@@ -4,6 +4,7 @@
 #include <math.h>
 #include <fstream>
 #include <algorithm>
+#include <chrono>
 #include <mm_malloc.h>
 #include "initPapi.h"
 #include "optimizedNeuralNetwork.h"
@@ -449,6 +450,7 @@ namespace optimized {
 
         
         float generalizationLoss, progress;
+        std::chrono::high_resolution_clock::time_point t1 = std::chrono::high_resolution_clock::now();
         for (neuralNetwork->state.epoch = 0; neuralNetwork->state.epoch < neuralNetwork->criteria.maxEpochs; neuralNetwork->state.epoch++) {
             neuralNetwork->state.learningLine = 0;
             neuralNetwork->state.testLine = 0;
@@ -509,6 +511,8 @@ namespace optimized {
             // }
             // std::cout << neuralNetwork->squareErrorHistory[neuralNetwork->state.epoch] << "  "<< neuralNetwork->bestSquareError[1]<< "\t"<< generalizationLoss << "\t\t"<< progress<< std::endl;
         }
+        std::chrono::high_resolution_clock::time_point t2 = std::chrono::high_resolution_clock::now();
+        std::cout << "Duration: " << (std::chrono::duration_cast<std::chrono::microseconds>( t2 - t1 ).count() / 1000) / 1000. << "s" << std::endl;
         // float x[2];
         // printNeuralNetwork(neuralNetwork, x);
         neuralNetwork->state.epoch--;
@@ -518,10 +522,10 @@ namespace optimized {
         printClassificationAccurancy(&(neuralNetwork->classificationAccurancyHistory[4 * neuralNetwork->setup.layers[neuralNetwork->setup.numOfLayers - 1] * neuralNetwork->state.epoch]), neuralNetwork->setup.layers[neuralNetwork->setup.numOfLayers - 1]);
         #endif
         std::cout << "ccurrentSquareErrorCounter " << neuralNetwork->currentSquareErrorCounter<<std::endl;
-        for (int i = 0; i < neuralNetwork->criteria.maxEpochs; i++) {
-            std::cout << neuralNetwork->squareErrorHistory[i] << " ";
-        }
-        std::cout<< std::endl;
+        // for (int i = 0; i < neuralNetwork->criteria.maxEpochs; i++) {
+        //     std::cout << neuralNetwork->squareErrorHistory[i] << " ";
+        // }
+        // std::cout<< std::endl;
 
         // deleteNeuralNetwork(neuralNetwork);
         // deleteTaskData(&taskData);
