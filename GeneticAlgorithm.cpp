@@ -213,7 +213,7 @@ void GeneticAlgorithm::evolution() {
     uint *chromosomeA, *chromosomeB;
     std::vector<uint*> evolution_chromosomes;
     std::vector<float> evolution_fitnesses;
-    vector <uint>::iterator it = this->chromosomes.begin();
+    std::vector <uint>::iterator it = this->chromosomes.begin();
     for (uint i = 0; i < this->chromosomes.size(); i++) {
         evolution_fitnesses.push_back(this->fitnesses[i]);
         evolution_chromosomes.push_back(&(*it));
