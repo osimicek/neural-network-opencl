@@ -425,7 +425,7 @@ void exportDataStructures(__global neural_network_transform_t *neural_network_tr
     neural_network_transform->neuralNetwork_bestSquareError[1] = neuralNetwork->bestSquareError[1];
 }
 
-uint get_interupt_limit(__global neuralNetwork_t *neuralNetwork) {
+uint get_interupt_limit(neuralNetwork_t *neuralNetwork) {
     uint number_of_weights = 0;
     for (int i = 1; i < neuralNetwork->setup.numOfLayers; i++) {
         number_of_weights += neuralNetwork->setup.layers[i] * neuralNetwork->setup.layers[i - 1];
