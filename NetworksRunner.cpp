@@ -1,4 +1,5 @@
 #include <iostream>
+#include <chrono>
 #include "NetworksRunner.h"
 
 /**
@@ -28,7 +29,7 @@ NetworksRunner::NetworksRunner(NetworksContainer *container):networks_container(
      */
     std::vector<std::string> codes;
     codes.push_back(knl_text);
-    Program program = OpenclHelper::build_program(*this->ctx, codes, (std::string("-DSHARED_MEMORY_SIZE=") + std::to_string(this->networks_container->get_shared_memory_per_network())).c_str());
+    Program program = OpenclHelper::build_program(*this->ctx, codes, (std::string("-O5 -DSHARED_MEMORY_SIZE=") + std::to_string(this->networks_container->get_shared_memory_per_network())).c_str());
     /**
      * Get kernel
      */
@@ -140,7 +141,7 @@ void NetworksRunner::run_networks() {
                                 NULL,
                                 NULL);
     CHECK_CL_ERROR(status, "cl::Queue.enqueueWriteBuffer()");
-    std::cout << "okk2+1 " << task_data_transform->taskData_totalTestLines << std::endl << std::flush;
+    std::cout << "okk2+1 " << neural_network_buffer_size << std::endl << std::flush;
     status = this->queue->enqueueWriteBuffer(buf_task_data_transform,
                                 CL_FALSE,
                                 0,
@@ -185,6 +186,7 @@ void NetworksRunner::run_networks() {
     std::cout << global_y << " x " << global_z << std::endl;
     std::cout << "number of networks " << number_of_networks <<std::endl << std::flush;
     // return;
+    std::chrono::high_resolution_clock::time_point t1 = std::chrono::high_resolution_clock::now();
     while(!this->has_all_finished(transforms, number_of_networks)) {
         status = this->queue->enqueueNDRangeKernel(*this->knl,
                                                 NullRange,
@@ -203,15 +205,16 @@ void NetworksRunner::run_networks() {
                                             0,
                                             transforms_size,
                                             transforms);
-        CHECK_CL_ERROR(status, "cl::Queue.enqueueReadBuffer ()");
+        CHECK_CL_ERROR(status, "cl::Queue.enqueueReadBuffer()");
     }
-
+    std::chrono::high_resolution_clock::time_point t2 = std::chrono::high_resolution_clock::now();
+    std::cout << "Duration: " << (std::chrono::duration_cast<std::chrono::microseconds>( t2 - t1 ).count() / 1000) / 1000. << "s" << std::endl;
     status = this->queue->enqueueReadBuffer(   buf_neuralnetwork,
                                                 CL_TRUE,
                                                 0,
                                                 neural_network_buffer_size,
                                                 neural_network_buffer);
-    CHECK_CL_ERROR(status, "cl::Queue.enqueueReadBuffer ()"); 
+    CHECK_CL_ERROR(status, "cl::Queue.enqueueReadBuffer()"); 
 
     this->networks_container->update_networks();
 
@@ -219,11 +222,11 @@ void NetworksRunner::run_networks() {
     // return 0;
     // this->networks_container->neural_networks[0]->print(this->networks_container->taskData.learningOutputs);
     // this->networks_container->neural_networks[1]->print(this->networks_container->taskData.learningOutputs);
-    // std::cout << "currentSquareErrorCounter " << this->networks_container->neural_networks[0]->currentSquareErrorCounter<<std::endl;
-    // for (int i = 0; i < this->networks_container->neural_networks[0]->criteria.maxEpochs; i++) {
-    //     std::cout << this->networks_container->neural_networks[0]->squareErrorHistory[i] << " ";
-    // }
-    // std::cout << std::endl;
+    std::cout << "currentSquareErrorCounter " << this->networks_container->neural_networks[0]->currentSquareErrorCounter<<std::endl;
+    for (int i = 0; i < this->networks_container->neural_networks[0]->criteria.maxEpochs; i++) {
+        std::cout << this->networks_container->neural_networks[0]->squareErrorHistory[i] << " ";
+    }
+    std::cout << std::endl;
     // for (int i = 0; i < this->networks_container->neural_networks[0]->criteria.maxEpochs; i++) {
     //     std::cout << this->networks_container->neural_networks[1]->squareErrorHistory[i] << " ";
     // }
