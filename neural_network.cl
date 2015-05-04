@@ -105,9 +105,6 @@ bool getLearningVector(neuralNetwork_t *neuralNetwork, taskData_t *taskData, __l
                                         neuralNetwork->state.learningLine * neuralNetwork->setup.layers[0]),
                                     neuralNetwork->setup.layers[0], 0);
     wait_group_events(1, &e);
-    for (int input = 0; input < neuralNetwork->setup.layers[0]; input++) {
-        neuralNetwork->state.values[input] = taskData->learningInputs[input + neuralNetwork->state.learningLine * neuralNetwork->setup.layers[0]];
-    }
 
     event_t e2 = async_work_group_copy(expectedOutput,
                                     (taskData->learningOutputs +
@@ -132,9 +129,6 @@ bool getTestVector(neuralNetwork_t *neuralNetwork, taskData_t *taskData, __local
                                         neuralNetwork->state.testLine * neuralNetwork->setup.layers[0]),
                                     neuralNetwork->setup.layers[0], 0);
     wait_group_events(1, &e);
-    for (int input = 0; input < neuralNetwork->setup.layers[0]; input++) {
-        neuralNetwork->state.values[input] = taskData->testInputs[input + neuralNetwork->state.testLine * neuralNetwork->setup.layers[0]];
-    }
 
     event_t e2 = async_work_group_copy(expectedOutput,
                                     (taskData->testOutputs +
@@ -190,8 +184,6 @@ void neuralLearnCycle(neuralNetwork_t *neuralNetwork,
     int prevNeuronsRounded, neuronsRounded;
 
     float weightError;
-
-
     // foward value computation
     for (layer = 1; layer < numOfLayers; layer++) {
         prevNeurons = layers[layer - 1];
@@ -205,7 +197,7 @@ void neuralLearnCycle(neuralNetwork_t *neuralNetwork,
             for (prevNeuron = 0; prevNeuron < prevNeurons; prevNeuron++) {
                 value += values[prevNeuron + prevValueOffset] * weights[prevNeuron + weightOffset];
             }
-            values[neuron + valueOffset] = 1. / (1. + exp(-neuralNetwork->setup.lambda * value));
+            values[neuron + valueOffset] = 1.f / (1.f + exp(-value));
         }
         weightOffset += (neurons - neuron) * prevNeuronsRounded;
         prevValueOffset += prevNeurons;
@@ -230,10 +222,10 @@ void neuralLearnCycle(neuralNetwork_t *neuralNetwork,
         //     errors[neuron + valueOffset] = 0;
         // }
     }
+    
     // weightOffset += (neurons - neuron) * prevNeuronsRounded;
     // neuralNetwork->state.epoch = 99;
     barrier(CLK_LOCAL_MEM_FENCE);
-
     followValueOffset = valueOffset;
     for (layer = numOfLayers - 2; layer > 0; layer--) {
         followNeurons = layers[layer + 1];
@@ -246,7 +238,7 @@ void neuralLearnCycle(neuralNetwork_t *neuralNetwork,
             weightError = 0.f;
             for (followNeuron = 0; followNeuron < followNeurons; followNeuron++) {
                 weightError += errors[followNeuron + followValueOffset] *
-                              weights[neuron + followNeuron * neuronsRounded + weightOffset];
+                               weights[neuron + followNeuron * neuronsRounded + weightOffset];
 
             }
             value = values[neuron + valueOffset];
@@ -255,6 +247,7 @@ void neuralLearnCycle(neuralNetwork_t *neuralNetwork,
         followValueOffset -= neurons;
         barrier(CLK_LOCAL_MEM_FENCE);
     }
+    
     // error propagation
     weightOffset = 0;
     valueOffset = 0;
@@ -266,9 +259,8 @@ void neuralLearnCycle(neuralNetwork_t *neuralNetwork,
         prefetch(&weights[weightOffset], prevNeuronsRounded);
         if (neuron < neurons) {
             for (prevNeuron = 0; prevNeuron < prevNeurons; prevNeuron++) {
-                weights[prevNeuron + weightOffset] = weights[prevNeuron + weightOffset] +
-                                                     neuralNetwork->setup.learningFactor * values[prevNeuron + valueOffset] *
-                                                     errors[neuron + valueOffset + prevNeurons];
+                weights[prevNeuron + weightOffset] += neuralNetwork->setup.learningFactor * values[prevNeuron + valueOffset] *
+                                                      errors[neuron + valueOffset + prevNeurons];
             }
         }
         weightOffset += (neurons - neuron) * prevNeuronsRounded;
@@ -371,7 +363,7 @@ void importDataStructures(__global neural_network_transform_t *neural_network_tr
     neuralNetwork->state.testLine = neural_network_transform->state_testLine;
     neuralNetwork->state.learningLine = neural_network_transform->state_learningLine;
     neuralNetwork->state.weights = (neural_network_buffer + neural_network_transform->state_b_offset_weights);
-    // return;
+
     event_t e2 = async_work_group_copy(neuralNetwork->state.values,
                                     (neural_network_buffer + neural_network_transform->state_b_offset_values),
                                     neural_network_transform->state_b_size_values, 0);
