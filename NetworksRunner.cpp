@@ -29,7 +29,7 @@ NetworksRunner::NetworksRunner(NetworksContainer *container):networks_container(
      */
     std::vector<std::string> codes;
     codes.push_back(knl_text);
-    Program program = OpenclHelper::build_program(*this->ctx, codes, (std::string("-O5 -DSHARED_MEMORY_SIZE=") + std::to_string(this->networks_container->get_shared_memory_per_network())).c_str());
+    Program program = OpenclHelper::build_program(*this->ctx, codes, (std::string("-cl-mad-enable -cl-strict-aliasing -cl-denorms-are-zero -cl-single-precision-constant -DSHARED_MEMORY_SIZE=") + std::to_string(this->networks_container->get_shared_memory_per_network())).c_str());
     /**
      * Get kernel
      */
