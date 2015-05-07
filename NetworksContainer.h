@@ -23,7 +23,7 @@ class NetworksContainer {
     public:
         std::vector<NeuralNetwork *> neural_networks;
         taskData_t taskData;
-        NetworksContainer();
+        NetworksContainer(int size = 256);
         void init_networks();
         void load_input_data(const char* filename);
         void update_networks();

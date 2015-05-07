@@ -9,17 +9,15 @@
  * It allows common initialization of all networks and
  * creation of common buffer for OpenCL usage.
  */
-NetworksContainer::NetworksContainer() {
-    this->set_size(256);
-
-    for (int i = 0; i < container_size; i++) {
-        this->neural_networks_storage.push_back(new NeuralNetwork);
-    }
+NetworksContainer::NetworksContainer(int size) {
+    std::cout << size << std::endl; 
+    this->set_size(size);
     // this->neural_networks[0]->set_hidden_layers(1, 20);
     // this->neural_networks_storage[1]->set_hidden_layers(1, 20);
     this->neural_network_buffer = NULL;
     this->task_data_buffer = NULL;
-    this->shared_memory_per_network = 4000;
+    this->shared_memory_per_network = 2000;
+    this->transforms = NULL;
 }
 
 /**
@@ -202,6 +200,9 @@ int NetworksContainer::get_task_data_buffer_size() {
  */
 int NetworksContainer::set_size(int size) {
     this->container_size = size;
+    if (this->transforms == NULL) {
+        free(this->transforms);
+    }
     this->transforms = (neural_network_transform_t *) _mm_malloc(container_size * sizeof(neural_network_transform_t), MEMORY_ALIGN);
 }
 

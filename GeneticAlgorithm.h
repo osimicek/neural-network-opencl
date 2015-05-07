@@ -20,6 +20,10 @@ class GeneticAlgorithm {
         int population_size;
         int generation;
         int max_generations;
+        int min_layers;
+        int max_layers;
+        int max_neurons;
+        int network_epochs;
         float reproduction_probability;
         float mutation_probability;
 
@@ -37,6 +41,12 @@ class GeneticAlgorithm {
         void generate_fitnesses();
         void evolution();
         void run();
+        void set_max_generations(int value);
+        void set_min_layers(int value);
+        void set_max_layers(int value);
+        void set_max_neurons(int value);
+        void set_population_size(int value);
+        void set_network_epochs(int value);
 };
 
 #endif

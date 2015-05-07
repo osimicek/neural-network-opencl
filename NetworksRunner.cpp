@@ -1,14 +1,14 @@
 #include <iostream>
-#include <chrono>
+// #include <chrono>
 #include "NetworksRunner.h"
 
 /**
  * Prepares context and compiles kernel.
  */
-NetworksRunner::NetworksRunner(NetworksContainer *container):networks_container(container) {
+NetworksRunner::NetworksRunner(uint platformId, uint deviceId, NetworksContainer *container):networks_container(container) {
     cl_int status;
     this->buf_taskdata = NULL;
-    Device device = OpenclHelper::get_device(0, 0);
+    Device device = OpenclHelper::get_device(platformId, deviceId);
 
     VECTOR_CLASS<Device> devices;
     devices.push_back(device);
@@ -95,8 +95,8 @@ void NetworksRunner::run_networks() {
     this->networks_container->init_networks();
 
     void *neural_network_buffer = this->networks_container->get_neural_network_buffer();
+     std::cout << "okk2" << std::endl << std::flush;
     int neural_network_buffer_size = this->networks_container->get_neural_network_buffer_size();
-
     task_data_transform_t *task_data_transform = this->networks_container->get_task_data_transform();
     neural_network_transform_t * transforms = this->networks_container->get_transforms();
     int transforms_size = this->networks_container->get_transforms_size();
@@ -165,8 +165,8 @@ void NetworksRunner::run_networks() {
      * Run kernel
      */
     this->knl->setArg(0, buf_neural_network_transform);
-    this->knl->setArg(1, buf_task_data_transform);
-    this->knl->setArg(2, buf_neuralnetwork);
+    this->knl->setArg(1, buf_neuralnetwork);
+    this->knl->setArg(2, buf_task_data_transform);
     this->knl->setArg(3, *this->buf_taskdata);
     this->knl->setArg(4, number_of_networks);
     std::cout << "Buff "  <<std::endl << std::flush;
@@ -186,7 +186,7 @@ void NetworksRunner::run_networks() {
     std::cout << global_y << " x " << global_z << std::endl;
     std::cout << "number of networks " << number_of_networks <<std::endl << std::flush;
     // return;
-    std::chrono::high_resolution_clock::time_point t1 = std::chrono::high_resolution_clock::now();
+    // std::chrono::high_resolution_clock::time_point t1 = std::chrono::high_resolution_clock::now();
     while(!this->has_all_finished(transforms, number_of_networks)) {
         status = this->queue->enqueueNDRangeKernel(*this->knl,
                                                 NullRange,
@@ -206,9 +206,10 @@ void NetworksRunner::run_networks() {
                                             transforms_size,
                                             transforms);
         CHECK_CL_ERROR(status, "cl::Queue.enqueueReadBuffer()");
+        // break;
     }
-    std::chrono::high_resolution_clock::time_point t2 = std::chrono::high_resolution_clock::now();
-    std::cout << "Duration: " << (std::chrono::duration_cast<std::chrono::microseconds>( t2 - t1 ).count() / 1000) / 1000. << "s" << std::endl;
+    // std::chrono::high_resolution_clock::time_point t2 = std::chrono::high_resolution_clock::now();
+    // std::cout << "Duration: " << (std::chrono::duration_cast<std::chrono::microseconds>( t2 - t1 ).count() / 1000) / 1000. << "s" << std::endl;
     status = this->queue->enqueueReadBuffer(   buf_neuralnetwork,
                                                 CL_TRUE,
                                                 0,
@@ -222,10 +223,10 @@ void NetworksRunner::run_networks() {
     // return 0;
     // this->networks_container->neural_networks[0]->print(this->networks_container->taskData.learningOutputs);
     // this->networks_container->neural_networks[1]->print(this->networks_container->taskData.learningOutputs);
-    std::cout << "currentSquareErrorCounter " << this->networks_container->neural_networks[0]->currentSquareErrorCounter<<std::endl;
-    for (int i = 0; i < this->networks_container->neural_networks[0]->criteria.maxEpochs; i++) {
-        std::cout << this->networks_container->neural_networks[0]->squareErrorHistory[i] << " ";
-    }
+    // std::cout << "currentSquareErrorCounter " << this->networks_container->neural_networks[0]->currentSquareErrorCounter<<std::endl;
+    // for (int i = 0; i < this->networks_container->neural_networks[0]->criteria.maxEpochs; i++) {
+    //     std::cout << this->networks_container->neural_networks[0]->squareErrorHistory[i] << " ";
+    // }
     std::cout << std::endl;
     // for (int i = 0; i < this->networks_container->neural_networks[0]->criteria.maxEpochs; i++) {
     //     std::cout << this->networks_container->neural_networks[1]->squareErrorHistory[i] << " ";

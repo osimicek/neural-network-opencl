@@ -18,11 +18,16 @@
 GeneticAlgorithm::GeneticAlgorithm( NetworksContainer *container,
                                     NetworksRunner *runner):networks_container(container),networks_runner(runner) {
     this->generation = 0;
-    this->population_size = container->size();
+    this->set_population_size(256);
+
     this->max_generations = 1;
     this->reproduction_probability = 0.9;
     this->mutation_probability = 0.05;
     this->number_of_elite = 2; // elitism
+    this->network_epochs = 10;
+    this->min_layers = 0;
+    this->max_layers = 4;
+    this->max_neurons = 256;
 }
 
 void GeneticAlgorithm::init() {
@@ -30,7 +35,7 @@ void GeneticAlgorithm::init() {
     this->measures.clear();
     this->fitnesses.clear();
     this->best_measure = 1;
-    srand(37);
+    // srand(37);
     for (int i = 0; i < this->population_size; i++) {
         this->chromosomes.push_back(rand());
         this->measures.push_back(1);
@@ -65,7 +70,7 @@ int GeneticAlgorithm::get_number_of_neurons(uint chromosome) {
     uint value = (chromosome & 0x0000ffc0) >> 6;
     value = value >> 2; // lower 10b to 8b
     value = this->gray_to_binary(value);
-    return value;
+    return value % (this->max_neurons + 1);
 }
 
 /**
@@ -75,7 +80,10 @@ int GeneticAlgorithm::get_number_of_hidden_layers(uint chromosome) {
     uint value = chromosome & 0x0000003f;
     value = value >> 4; // lower 6b to 2b
     value = this->gray_to_binary(value);
-    return value;
+    if (value < this->min_layers) {
+        value = this->min_layers;
+    }
+    return value % (this->max_layers + 1);
 }
 
 /**
@@ -217,7 +225,7 @@ void GeneticAlgorithm::evolution() {
     for (uint i = 0; i < this->chromosomes.size(); i++) {
         evolution_fitnesses.push_back(this->fitnesses[i]);
         evolution_chromosomes.push_back(&(*it));
-        it++;
+        ++it;
     }
 
     for (int elite_pair = 0; elite_pair < this->number_of_elite; elite_pair += 2) {
@@ -263,6 +271,7 @@ void GeneticAlgorithm::run() {
             // }
             nn->set_hidden_layers(this->get_number_of_hidden_layers(*chromosome), this->get_number_of_neurons(*chromosome));
             nn->set_learning_factor(this->get_learning_factor(*chromosome));
+            nn->set_max_epochs(this->network_epochs);
 
             neural_networks->push_back(nn);
         }
@@ -295,4 +304,29 @@ void GeneticAlgorithm::run() {
     }
     printf("Best configuration: \n  square error: %f\n  learning factor: %f\n  neurons: %d\n  hidden layers: %d\n",
             this->best_measure ,this->best_learning_factor,this->best_number_of_neurons, this->best_number_of_hidden_layers);
+}
+
+void GeneticAlgorithm::set_max_generations(int value) {
+    this->max_generations = value;
+}
+
+void GeneticAlgorithm::set_min_layers(int value) {
+    this->min_layers = value;
+}
+
+void GeneticAlgorithm::set_max_layers(int value) {
+    this->max_layers = value;
+}
+
+void GeneticAlgorithm::set_max_neurons(int value) {
+    this->max_neurons = value;
+}
+
+void GeneticAlgorithm::set_population_size(int value) {
+    networks_container->set_size(value);
+    this->population_size = value;
+}
+
+void GeneticAlgorithm::set_network_epochs(int value) {
+    this->network_epochs = value;
 }

@@ -16,7 +16,7 @@ class NetworksRunner {
         int task_data_buffer_size;
         bool has_all_finished(neural_network_transform_t * transforms, int number_of_networks);
     public:
-        NetworksRunner(NetworksContainer *networks_container);
+        NetworksRunner(uint platformId, uint deviceId, NetworksContainer *networks_container);
         ~NetworksRunner();
         void write_task_data();
         void run_networks();
