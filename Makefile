@@ -28,7 +28,7 @@ endif
 main: $(neuralnetwork_obj) $(EXECUTABLE).o
 	$(CC) $(neuralnetwork_obj) $(EXECUTABLE).o -o  $(EXECUTABLE) $(CPPFLAGS)
 
-tests: $(tests_obj) tests.o
+.tests: $(tests_obj) tests.o
 	$(CC) $(tests_obj) tests.o -o  tests $(CPPFLAGS)
 	./tests
 

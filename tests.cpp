@@ -4,10 +4,12 @@
 #include "NetworksContainer.h"
 #include "NetworksRunner.h"
 
+#define DEVICE_ID 0
+#define PLATFORM_ID 0
 
 int compare_networks(NeuralNetworkT *neuralNetwork_c, NeuralNetwork *neuralNetwork_opencl) {
     for (int i = 0; i < neuralNetwork_c->criteria.maxEpochs; i++) {
-        // printf("test: %f %f\n", neuralNetwork_c->squareErrorHistory[i], neuralNetwork_opencl->squareErrorHistory[i] * 1.0001);
+        printf("test: %f %f\n", neuralNetwork_c->squareErrorHistory[i], neuralNetwork_opencl->squareErrorHistory[i] );
         if (neuralNetwork_opencl->squareErrorHistory[i] < neuralNetwork_c->squareErrorHistory[i] * 0.9999 ||
             neuralNetwork_opencl->squareErrorHistory[i] > neuralNetwork_c->squareErrorHistory[i] * 1.0001) {
             return 1;
@@ -46,21 +48,21 @@ int test_11() {
 
     networks_container.load_input_data(filename);
 
-    NetworksRunner networks_runner(&networks_container);
+    NetworksRunner networks_runner(DEVICE_ID, PLATFORM_ID, &networks_container);
     networks_runner.write_task_data();
     networks_runner.run_networks();
 
     return compare_networks(&neuralNetwork_c, &neuralNetwork_opencl);
 }
 
-int test_11_11() {
+int test_80_80() {
     const char *filename = "./neural_network_c/data/cancer.dt";
     NeuralNetworkT neuralNetwork_c;
     neuralNetwork_c.setup.classification = true;
     neuralNetwork_c.setup.lambda = 1.f;
     neuralNetwork_c.setup.learningFactor = 0.222f;
     neuralNetwork_c.setup.numOfLayers = 4;
-    int tmpLayers[] = {-1,  11, 11,  -1};
+    int tmpLayers[] = {-1,  80, 80,  -1};
     neuralNetwork_c.setup.layers = tmpLayers;
     neuralNetwork_c.setup.minOutputValue = 0.f;
     neuralNetwork_c.setup.maxOutputValue = 1.f;
@@ -83,11 +85,116 @@ int test_11_11() {
 
     networks_container.load_input_data(filename);
 
-    NetworksRunner networks_runner(&networks_container);
+    NetworksRunner networks_runner(DEVICE_ID, PLATFORM_ID, &networks_container);
     networks_runner.write_task_data();
     networks_runner.run_networks();
 
     return compare_networks(&neuralNetwork_c, &neuralNetwork_opencl);
+}
+
+int test_11_8() {
+    const char *filename = "./neural_network_c/data/cancer.dt";
+    NeuralNetworkT neuralNetwork_c;
+    neuralNetwork_c.setup.classification = true;
+    neuralNetwork_c.setup.lambda = 1.f;
+    neuralNetwork_c.setup.learningFactor = 0.222f;
+    neuralNetwork_c.setup.numOfLayers = 4;
+    int tmpLayers[] = {-1,  11, 8,  -1};
+    neuralNetwork_c.setup.layers = tmpLayers;
+    neuralNetwork_c.setup.minOutputValue = 0.f;
+    neuralNetwork_c.setup.maxOutputValue = 1.f;
+    neuralNetwork_c.criteria.maxEpochs = 10;
+    neuralNetwork_c.criteria.minProgress = 5.0f;
+    neuralNetwork_c.criteria.maxGeneralizationLoss = 4.0f;
+
+    optimized::runOptimizedNeuralNetwork(&neuralNetwork_c, filename);
+
+    NeuralNetwork neuralNetwork_opencl;
+    neuralNetwork_opencl.set_hidden_layers(neuralNetwork_c.setup.numOfLayers - 2, neuralNetwork_c.setup.layers[1]);
+    neuralNetwork_opencl.setup.layers[2] = 8;
+    neuralNetwork_opencl.set_learning_factor(neuralNetwork_c.setup.learningFactor);
+    neuralNetwork_opencl.set_max_epochs(neuralNetwork_c.criteria.maxEpochs);
+
+    NetworksContainer networks_container;
+    std::vector<NeuralNetwork *> * neural_networks = networks_container.get_neural_networks_storage();
+    networks_container.set_size(1);
+    neural_networks->clear();
+    neural_networks->push_back(&neuralNetwork_opencl);
+
+    networks_container.load_input_data(filename);
+
+    NetworksRunner networks_runner(DEVICE_ID, PLATFORM_ID, &networks_container);
+    networks_runner.write_task_data();
+    networks_runner.run_networks();
+
+    return compare_networks(&neuralNetwork_c, &neuralNetwork_opencl);
+}
+
+
+int test_container() {
+    const char *filename = "./neural_network_c/data/cancer.dt";
+    NeuralNetworkT neuralNetwork_c;
+    neuralNetwork_c.setup.classification = true;
+    neuralNetwork_c.setup.lambda = 1.f;
+    neuralNetwork_c.setup.learningFactor = 0.4f;
+    neuralNetwork_c.setup.numOfLayers = 3;
+    int tmpLayers[] = {-1,  11,  -1};
+    neuralNetwork_c.setup.layers = tmpLayers;
+    neuralNetwork_c.setup.minOutputValue = 0.f;
+    neuralNetwork_c.setup.maxOutputValue = 1.f;
+    neuralNetwork_c.criteria.maxEpochs = 10;
+    neuralNetwork_c.criteria.minProgress = 5.0f;
+    neuralNetwork_c.criteria.maxGeneralizationLoss = 4.0f;
+    optimized::runOptimizedNeuralNetwork(&neuralNetwork_c, filename);
+    NeuralNetworkT neuralNetwork_c_2;
+    neuralNetwork_c_2.setup.classification = true;
+    neuralNetwork_c_2.setup.lambda = 1.f;
+    neuralNetwork_c_2.setup.learningFactor = 0.4f;
+    neuralNetwork_c_2.setup.numOfLayers = 3;
+    int tmpLayers_2[] = {-1,  22,  -1};
+    neuralNetwork_c_2.setup.layers = tmpLayers_2;
+    neuralNetwork_c_2.setup.minOutputValue = 0.f;
+    neuralNetwork_c_2.setup.maxOutputValue = 1.f;
+    neuralNetwork_c_2.criteria.maxEpochs = 10;
+    neuralNetwork_c_2.criteria.minProgress = 5.0f;
+    neuralNetwork_c_2.criteria.maxGeneralizationLoss = 4.0f;
+    optimized::runOptimizedNeuralNetwork(&neuralNetwork_c_2, filename);
+
+    NetworksContainer networks_container;
+    std::vector<NeuralNetwork *> * neural_networks = networks_container.get_neural_networks_storage();
+    networks_container.set_size(4);
+    neural_networks->clear();
+    NeuralNetwork neuralNetwork_opencl_1;
+    neuralNetwork_opencl_1.set_hidden_layers(neuralNetwork_c.setup.numOfLayers - 2, neuralNetwork_c.setup.layers[1]);
+    neuralNetwork_opencl_1.set_learning_factor(neuralNetwork_c.setup.learningFactor);
+    neuralNetwork_opencl_1.set_max_epochs(neuralNetwork_c.criteria.maxEpochs);
+    neural_networks->push_back(&neuralNetwork_opencl_1);
+
+    NeuralNetwork neuralNetwork_opencl_2;
+    neuralNetwork_opencl_2.set_hidden_layers(neuralNetwork_c.setup.numOfLayers - 2, neuralNetwork_c.setup.layers[1]);
+    neuralNetwork_opencl_2.set_learning_factor(neuralNetwork_c.setup.learningFactor);
+    neuralNetwork_opencl_2.set_max_epochs(neuralNetwork_c.criteria.maxEpochs);
+    neural_networks->push_back(&neuralNetwork_opencl_2);
+
+    NeuralNetwork neuralNetwork_opencl_3;
+    neuralNetwork_opencl_3.set_hidden_layers(neuralNetwork_c.setup.numOfLayers - 2, neuralNetwork_c.setup.layers[1]);
+    neuralNetwork_opencl_3.set_learning_factor(neuralNetwork_c.setup.learningFactor);
+    neuralNetwork_opencl_3.set_max_epochs(neuralNetwork_c.criteria.maxEpochs);
+    neural_networks->push_back(&neuralNetwork_opencl_3);
+
+    NeuralNetwork neuralNetwork_opencl_4;
+    neuralNetwork_opencl_4.set_hidden_layers(neuralNetwork_c_2.setup.numOfLayers - 2, neuralNetwork_c_2.setup.layers[1]);
+    neuralNetwork_opencl_4.set_learning_factor(neuralNetwork_c_2.setup.learningFactor);
+    neuralNetwork_opencl_4.set_max_epochs(neuralNetwork_c_2.criteria.maxEpochs);
+    neural_networks->push_back(&neuralNetwork_opencl_4);
+
+    networks_container.load_input_data(filename);
+
+    NetworksRunner networks_runner(DEVICE_ID, PLATFORM_ID, &networks_container);
+    networks_runner.write_task_data();
+    networks_runner.run_networks();
+
+    return compare_networks(&neuralNetwork_c, &neuralNetwork_opencl_1) && compare_networks(&neuralNetwork_c_2, &neuralNetwork_opencl_4);
 }
 
 
@@ -102,8 +209,20 @@ int main(int argc, char **argv)
     }
     total_tests++;
 
-    if (test_11_11()) {
-        printf("11x11 neurons test failed");
+    if (test_80_80()) {
+        printf("80x80 neurons test failed");
+        failed_tests++;
+    }
+    total_tests++;
+
+    if (test_11_8()) {
+        printf("11x8 neurons test failed");
+        failed_tests++;
+    }
+    total_tests++;
+
+    if (test_container()) {
+        printf("Container test failed");
         failed_tests++;
     }
     total_tests++;
