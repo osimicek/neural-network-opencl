@@ -462,7 +462,7 @@ uint get_interupt_limit(neuralNetwork_t *neuralNetwork) {
     for (int i = 1; i < neuralNetwork->setup.numOfLayers; i++) {
         number_of_weights += neuralNetwork->setup.layers[i] * neuralNetwork->setup.layers[i - 1];
     }
-    return 100000 / ((number_of_weights / 5000) + 1) + 1;
+    return 10000 / ((number_of_weights / 5000) + 1) + 1;
 }
 
 __kernel void run_neural_network(
