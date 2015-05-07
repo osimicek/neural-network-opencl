@@ -82,13 +82,17 @@ size_t get_local_linear_id() {
     return  (get_local_id(2) * get_local_size(1) *
             (0)) + (get_local_id(1) *
             get_local_size(0)) + get_local_id(0);
-    }
+}
 
 size_t get_group_linear_id() {
     return  (get_group_id(2) * get_num_groups(1) *
             (0)) + (get_group_id(1) *
             get_num_groups(0)) + get_group_id(0);
-    }
+}
+
+size_t get_group_size() {
+    return  get_local_size(0) * get_local_size(1) * get_local_size(2);
+}
 
 
 /**
@@ -161,6 +165,7 @@ void findAndSetBestSquareError(neuralNetwork_t *neuralNetwork) {
  */
 void neuralLearnCycle(neuralNetwork_t *neuralNetwork, 
                        __local float *expectedOutput,
+                       __local float *tmp,
                        int neuron) {
     int numOfLayers = neuralNetwork->setup.numOfLayers;
     __local int * layers = neuralNetwork->setup.layers;
@@ -171,7 +176,6 @@ void neuralLearnCycle(neuralNetwork_t *neuralNetwork,
 
     int valueOffset = 0;
     int prevValueOffset = 0;
-    int followValueOffset = 0;
     int weightOffset = 0;
 
     int layer;
@@ -179,9 +183,7 @@ void neuralLearnCycle(neuralNetwork_t *neuralNetwork,
     int neurons;
     int prevNeurons;
     int prevNeuron;
-    int followNeurons;
-    int followNeuron;
-    int followNeuronsRounded, neuronsRounded;
+    int neuronsRounded;
 
     float weightError;
     // foward value computation
@@ -228,28 +230,60 @@ void neuralLearnCycle(neuralNetwork_t *neuralNetwork,
     // neuralNetwork->state.epoch = 99;
 
     barrier(CLK_LOCAL_MEM_FENCE);
-    followValueOffset = valueOffset;
-    for (layer = numOfLayers - 2; layer > 0; layer--) {
-        followNeurons = layers[layer + 1];
+    int maxNeurons = get_group_size();
+    prevValueOffset = valueOffset;
+    for (layer = numOfLayers - 1; layer > 1; layer--) {
         neurons = layers[layer];
-        valueOffset -= neurons;
-        followNeuronsRounded = (((followNeurons - 1) >> OPENCL_MEMORY_ALIGN) + 1) << OPENCL_MEMORY_ALIGN;
-        // prefetch(&weights[weightOffset], followNeuron * neuronsRounded);
-        if (neuron < neurons) {
-            weightOffset -= followNeuronsRounded * (neurons - neuron);
-            weightError = 0.f;
-            for (followNeuron = 0; followNeuron < followNeurons; followNeuron++) {
-                weightError += errors[followNeuron + followValueOffset] *
-                               weights[followNeuron + weightOffset];
+        neuronsRounded = (((neurons - 1) >> OPENCL_MEMORY_ALIGN) + 1) << OPENCL_MEMORY_ALIGN;
+        prevNeurons = layers[layer - 1];
+        weightOffset -= prevNeurons * neuronsRounded;
+        prevValueOffset -= prevNeurons;
+        for (prevNeuron = 0; prevNeuron < prevNeurons; prevNeuron++) {
+            tmp[neuron] = 0.f;
+            if (neuron < neurons) { // neuron represents weight
+                tmp[neuron] = errors[neuron + valueOffset] * weights[neuron + weightOffset];
             }
-            value = values[neuron + valueOffset];
-            errors[neuron + valueOffset] = weightError * (value * (1 - value));
-            weightOffset += followNeuronsRounded * (neurons - neuron);
+            barrier(CLK_LOCAL_MEM_FENCE);
+           
+            for (int subTree = neurons >> 1; subTree >= 1; subTree >>= 1) {
+                if (neuron < subTree) {
+                    tmp[neuron] = tmp[neuron] + tmp[neuron | subTree];
+                }
+                barrier(CLK_LOCAL_MEM_FENCE);
+            }
+            if (neuron == 0) {
+                weightError = tmp[0];
+                value = values[prevNeuron + prevValueOffset];
+                errors[prevNeuron + prevValueOffset] = weightError * (value * (1 - value));
+            }
+            weightOffset += neuronsRounded;
         }
-        weightOffset -= followNeuronsRounded * neurons;
-        followValueOffset -= neurons;
-        barrier(CLK_LOCAL_MEM_FENCE);
+        weightOffset -= prevNeurons * neuronsRounded;
+        valueOffset = prevValueOffset;
     }
+    barrier(CLK_LOCAL_MEM_FENCE);
+    // followValueOffset = valueOffset;
+    // for (layer = numOfLayers - 2; layer > 0; layer--) {
+    //     followNeurons = layers[layer + 1];
+    //     neurons = layers[layer];
+    //     valueOffset -= neurons;
+    //      (((followNeurons - 1) >> OPENCL_MEMORY_ALIGN) + 1) << OPENCL_MEMORY_ALIGN;
+    //     // prefetch(&weights[weightOffset], followNeuron * neuronsRounded);
+    //     if (neuron < neurons) {
+    //         weightOffset -=  (neurons - neuron);
+    //         weightError = 0.f;
+    //         for (followNeuron = 0; followNeuron < followNeurons; followNeuron++) {
+    //             weightError += errors[followNeuron + followValueOffset] *
+    //                            weights[followNeuron + weightOffset];
+    //         }
+    //         value = values[neuron + valueOffset];
+    //         errors[neuron + valueOffset] = weightError * (value * (1 - value));
+    //         weightOffset +=  (neurons - neuron);
+    //     }
+    //     weightOffset -=  neurons;
+    //     followValueOffset -= neurons;
+    //     barrier(CLK_LOCAL_MEM_FENCE);
+    // }
     
     // error propagation
     weightOffset = 0;
@@ -259,12 +293,15 @@ void neuralLearnCycle(neuralNetwork_t *neuralNetwork,
         neurons = layers[layer];
         neuronsRounded = (((neurons - 1) >> OPENCL_MEMORY_ALIGN) + 1) << OPENCL_MEMORY_ALIGN;
         // prefetch(&weights[weightOffset], prevNeuronsRounded);
+        
         if (neuron < neurons) {
             for (prevNeuron = 0; prevNeuron < prevNeurons; prevNeuron++) {
                 weights[neuron + weightOffset] += neuralNetwork->setup.learningFactor * values[prevNeuron + valueOffset] *
                                                       errors[neuron + valueOffset + prevNeurons];
                 weightOffset += neuronsRounded;
             }
+        } else {
+            weightOffset += neuronsRounded*prevNeurons;
         }
         valueOffset += prevNeurons;
     }
@@ -425,7 +462,7 @@ uint get_interupt_limit(neuralNetwork_t *neuralNetwork) {
     for (int i = 1; i < neuralNetwork->setup.numOfLayers; i++) {
         number_of_weights += neuralNetwork->setup.layers[i] * neuralNetwork->setup.layers[i - 1];
     }
-    return 1000 / ((number_of_weights / 5000) + 1) + 1;
+    return 100000 / ((number_of_weights / 5000) + 1) + 1;
 }
 
 __kernel void run_neural_network(
@@ -448,6 +485,7 @@ __kernel void run_neural_network(
         __global neural_network_transform_t *neural_network_transform = &neural_network_transform_arr[group_id];
         neural_network_buffer = neural_network_buffer + neural_network_transform->neuralNetwork_b_offset;
         __local float *expectedOutput;
+        __local float tmp[256];
         __local float sharedMemory[SHARED_MEMORY_SIZE];
         neuralNetwork.setup.layers = (__local int*)sharedMemory;
         neuralNetwork.state.values = sharedMemory + neural_network_transform->setup_numOfLayers;
@@ -457,13 +495,13 @@ __kernel void run_neural_network(
         uint interupt_limit = get_interupt_limit(&neuralNetwork);
         for (; neuralNetwork.state.epoch < neuralNetwork.criteria.maxEpochs; neuralNetwork.state.epoch++) {
             while (getLearningVector(&neuralNetwork, &taskData, expectedOutput)) {
-                neuralLearnCycle(&neuralNetwork, expectedOutput, lid);
+                neuralLearnCycle(&neuralNetwork, expectedOutput, tmp, lid);
                 cycle_counter++;
                 if (cycle_counter >= interupt_limit) {
                     exportDataStructures(neural_network_transform, neural_network_buffer, task_data_buffer, &neuralNetwork, &taskData);
                     return;
                 }
-                // if (neuralNetwork.state.learningLine >= 1  && neuralNetwork.state.epoch >= 0) {
+                // if (neuralNetwork.state.learningLine >= 15  && neuralNetwork.state.epoch >= 0) {
                 //     exportDataStructures(neural_network_transform, neural_network_buffer, task_data_buffer, &neuralNetwork, &taskData);
                 //     return;
                 // }
