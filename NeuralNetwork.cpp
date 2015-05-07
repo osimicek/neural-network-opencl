@@ -20,11 +20,11 @@ NeuralNetwork::NeuralNetwork() {
     this->setup.learningFactor = 0.4f;
     // this->setup.numOfLayers = 4;
     // int tmpLayers[] = {-1, 9, 9, -1};
-    this->set_hidden_layers(2,11);
+    this->set_hidden_layers(3, 256);
 
     this->setup.minOutputValue = 0.f;
     this->setup.maxOutputValue = 1.f;
-    this->criteria.maxEpochs = 10;
+    this->criteria.maxEpochs = 1;
     this->criteria.minProgress = 5.0f;
     this->criteria.maxGeneralizationLoss = 4.0f;
 
@@ -89,17 +89,16 @@ void NeuralNetwork::print(float *expectedOutput) {
     for (int layer = 1; layer < numOfLayers; layer++) {
         int neurons = layers[layer];
         int prevNeurons = layers[layer - 1];
-        int prev_rounded_layer_size = (((layers[layer - 1] - 1) >> OPENCL_MEMORY_ALIGN) + 1) << OPENCL_MEMORY_ALIGN;
+        int rounded_layer_size = (((layers[layer] - 1) >> OPENCL_MEMORY_ALIGN) + 1) << OPENCL_MEMORY_ALIGN;
         printf("\t");
         for (int neuron = 0; neuron < neurons; neuron++) {
             for (int prevNeuron = 0; prevNeuron < prevNeurons; prevNeuron++) {
-                printf("%0.1f ",  weights[weightOffset + prevNeuron]);
+                printf("%0.2f ",  weights[weightOffset + prevNeuron * rounded_layer_size + neuron]);
                 // printf("neur %d ",  weightOffset + prevNeuron);
             }
             printf("| ");
-            weightOffset += prev_rounded_layer_size;
-            // weightOffset += prevNeurons;
         }
+        weightOffset += prevNeurons * rounded_layer_size;
         printf("\n");
     }
 
@@ -109,7 +108,7 @@ void NeuralNetwork::print(float *expectedOutput) {
         int neurons = layers[layer];
         printf("\t");
         for (int neuron = 0; neuron < neurons; neuron++) {
-            printf("%6.3f  ", errors[neuron + valueOffset]);
+            printf("%6.4f  ", errors[neuron + valueOffset]);
         }
         printf("\n");
         valueOffset += neurons;
@@ -190,14 +189,14 @@ void NeuralNetwork::init_weights(int length) {
     for (int layer = 1; layer < this->setup.numOfLayers; layer++) {
         int neurons = layers[layer];
         int prevNeurons = layers[layer - 1];
-        int prev_rounded_layer_size = (((layers[layer - 1] - 1) >> OPENCL_MEMORY_ALIGN) + 1) << OPENCL_MEMORY_ALIGN;
+        int rounded_layer_size = (((layers[layer] - 1) >> OPENCL_MEMORY_ALIGN) + 1) << OPENCL_MEMORY_ALIGN;
         for (int neuron = 0; neuron < neurons; neuron++) {
             for (int prevNeuron = 0; prevNeuron < prevNeurons; prevNeuron++) {
-                this->state.weights[weightOffset + prevNeuron] = (rand() % 100 + 1) / 100.f - 0.5;
+                this->state.weights[weightOffset + prevNeuron * rounded_layer_size + neuron] = (rand() % 100 + 1) / 100.f - 0.5;
                 // printf("neur %0.1f ",  this->state.weights[weightOffset + prevNeuron]);
             }
-            weightOffset += prev_rounded_layer_size;
         }
+        weightOffset += prevNeurons * rounded_layer_size;
     }
 }
 
@@ -209,8 +208,8 @@ int NeuralNetwork::get_required_buffer_size() {
     int numOfWeights = 0;
     int *layers = this->setup.layers;
     for (int i = 1; i < this->setup.numOfLayers; i++) {
-        int prev_rounded_layer_size = (((layers[i - 1] - 1) >> OPENCL_MEMORY_ALIGN) + 1) << OPENCL_MEMORY_ALIGN;
-        numOfWeights += layers[i] * prev_rounded_layer_size;
+        int rounded_layer_size = (((layers[i] - 1) >> OPENCL_MEMORY_ALIGN) + 1) << OPENCL_MEMORY_ALIGN;
+        numOfWeights += rounded_layer_size * layers[i - 1];
     }
 
     int numOfValues = 0;
@@ -220,8 +219,9 @@ int NeuralNetwork::get_required_buffer_size() {
     int numOfSquareErrorHistory = this->criteria.maxEpochs;
     // std::cout << "required buff "<<  (numOfWeights + numOfValues + numOfValues +
     //         numOfSquareErrorHistory + this->setup.numOfLayers) << std::endl;
-    return (numOfWeights + numOfValues + numOfValues +
-            numOfSquareErrorHistory + this->setup.numOfLayers);
+    int buffer_size = (numOfWeights + numOfValues + numOfValues +
+                        numOfSquareErrorHistory + this->setup.numOfLayers);
+    return (((buffer_size - 1) >> OPENCL_MEMORY_ALIGN) + 1) << OPENCL_MEMORY_ALIGN;
 }
 
 /**
@@ -231,9 +231,8 @@ void NeuralNetwork::init(neural_network_transform_t *transform, void *neural_net
     int numOfWeights = 0;
     int *layers = this->setup.layers;
     for (int i = 1; i < this->setup.numOfLayers; i++) {
-        int prev_rounded_layer_size = (((layers[i - 1] - 1) >> OPENCL_MEMORY_ALIGN) + 1) << OPENCL_MEMORY_ALIGN;
-        prev_rounded_layer_size = (((prev_rounded_layer_size - 1) >> OPENCL_MEMORY_ALIGN) + 1) << OPENCL_MEMORY_ALIGN;
-        numOfWeights += layers[i] * prev_rounded_layer_size;
+        int rounded_layer_size = (((layers[i] - 1) >> OPENCL_MEMORY_ALIGN) + 1) << OPENCL_MEMORY_ALIGN;
+        numOfWeights += rounded_layer_size * layers[i - 1];
     }
     
     this->bestSquareError[0] = -1.f;
