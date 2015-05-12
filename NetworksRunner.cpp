@@ -1,5 +1,5 @@
 #include <iostream>
-// #include <chrono>
+#include <chrono>
 #include "NetworksRunner.h"
 
 /**
@@ -9,6 +9,7 @@ NetworksRunner::NetworksRunner(uint platformId, uint deviceId, NetworksContainer
     cl_int status;
     this->buf_taskdata = NULL;
     Device device = OpenclHelper::get_device(platformId, deviceId);
+    this->max_neurons = 256;
 
     VECTOR_CLASS<Device> devices;
     devices.push_back(device);
@@ -33,17 +34,23 @@ NetworksRunner::NetworksRunner(uint platformId, uint deviceId, NetworksContainer
     /**
      * Get kernel
      */
-    this->knl = new Kernel(program, "run_neural_network", &status);
+    this->knl_learn = new Kernel(program, "run_neural_network", &status);
+    this->knl_predict = new Kernel(program, "run_neural_network_predict", &status);
     CHECK_CL_ERROR(status, "cl::Kernel");
 }
 
 NetworksRunner::~NetworksRunner() {
     delete this->ctx;
     delete this->queue;
-    delete this->knl;
+    delete this->knl_learn;
+    delete this->knl_predict;
     if (this->buf_taskdata != NULL) {
         delete this->buf_taskdata;
     }
+}
+
+void NetworksRunner::set_max_neurons(int value) {
+    this->max_neurons = value;
 }
 
 /**
@@ -54,8 +61,18 @@ void NetworksRunner::write_task_data() {
     if (this->buf_taskdata != NULL) {
         delete this->buf_taskdata;
     }
+    task_data_transform_t *task_data_transform = this->networks_container->get_task_data_transform();
     this->task_data_buffer = this->networks_container->get_task_data_buffer();
     this->task_data_buffer_size = this->networks_container->get_task_data_buffer_size();
+    /**
+     * Create buffers
+     */
+    this->buf_task_data_transform = new Buffer(*this->ctx,
+                                    CL_MEM_READ_ONLY,
+                                    sizeof(task_data_transform_t),
+                                    (void *)NULL,
+                                    &status);
+    CHECK_CL_ERROR(status, "cl::Buffer");
 
     this->buf_taskdata = new Buffer(*this->ctx,
                                     CL_MEM_READ_ONLY ,
@@ -63,6 +80,18 @@ void NetworksRunner::write_task_data() {
                                     NULL,
                                     &status);
     CHECK_CL_ERROR(status, "cl::Buffer");
+
+    /**
+     * Transfer to device
+     */
+    status = this->queue->enqueueWriteBuffer(*this->buf_task_data_transform,
+                                CL_FALSE,
+                                0,
+                                sizeof(task_data_transform_t),
+                                task_data_transform,
+                                NULL,
+                                NULL);
+    CHECK_CL_ERROR(status, "cl::Queue.enqueueWriteBuffer()");
 
     status = this->queue->enqueueWriteBuffer(*this->buf_taskdata,
                                             CL_FALSE,
@@ -80,7 +109,7 @@ void NetworksRunner::write_task_data() {
 bool NetworksRunner::has_all_finished(neural_network_transform_t * transforms, int number_of_networks) {
     for (int i = 0; i < number_of_networks; i++) {
         if (transforms[i].state_epoch < transforms[i].criteria_maxEpochs) {
-            std::cout << transforms[i].state_epoch <<" "<<transforms[i].criteria_maxEpochs << std::endl << std::flush;
+            // std::cout << transforms[i].state_epoch <<" "<<transforms[i].criteria_maxEpochs << std::endl << std::flush;
             return false;
         }
     }
@@ -90,14 +119,12 @@ bool NetworksRunner::has_all_finished(neural_network_transform_t * transforms, i
 /**
  * Runs neural networks from container on GPU device.
  */
-void NetworksRunner::run_networks() {
+void NetworksRunner::run_networks(bool verbose) {
     cl_int status;
     this->networks_container->init_networks();
 
     void *neural_network_buffer = this->networks_container->get_neural_network_buffer();
-     std::cout << "okk2" << std::endl << std::flush;
     int neural_network_buffer_size = this->networks_container->get_neural_network_buffer_size();
-    task_data_transform_t *task_data_transform = this->networks_container->get_task_data_transform();
     neural_network_transform_t * transforms = this->networks_container->get_transforms();
     int transforms_size = this->networks_container->get_transforms_size();
     int number_of_networks = this->networks_container->get_number_of_neural_networks();
@@ -115,13 +142,6 @@ void NetworksRunner::run_networks() {
                     &status);
     CHECK_CL_ERROR(status, "cl::Buffer");
 
-    Buffer buf_task_data_transform(*this->ctx,
-                    CL_MEM_READ_ONLY,
-                    sizeof(task_data_transform_t),
-                    (void *)NULL,
-                    &status);
-    CHECK_CL_ERROR(status, "cl::Buffer");
-
     Buffer buf_neuralnetwork(*this->ctx,
                     CL_MEM_READ_WRITE,
                     neural_network_buffer_size,
@@ -132,7 +152,6 @@ void NetworksRunner::run_networks() {
     /**
      * Transfer to device
      */
-    std::cout << "okk2" << std::endl << std::flush;
     status = this->queue->enqueueWriteBuffer(   buf_neural_network_transform,
                                 CL_FALSE,
                                 0,
@@ -141,15 +160,7 @@ void NetworksRunner::run_networks() {
                                 NULL,
                                 NULL);
     CHECK_CL_ERROR(status, "cl::Queue.enqueueWriteBuffer()");
-    std::cout << "okk2+1 " << neural_network_buffer_size << std::endl << std::flush;
-    status = this->queue->enqueueWriteBuffer(buf_task_data_transform,
-                                CL_FALSE,
-                                0,
-                                sizeof(task_data_transform_t),
-                                task_data_transform,
-                                NULL,
-                                NULL);
-    CHECK_CL_ERROR(status, "cl::Queue.enqueueWriteBuffer()");
+    
     status = this->queue->enqueueWriteBuffer(   buf_neuralnetwork,
                                 CL_FALSE,
                                 0,
@@ -164,12 +175,11 @@ void NetworksRunner::run_networks() {
     /**
      * Run kernel
      */
-    this->knl->setArg(0, buf_neural_network_transform);
-    this->knl->setArg(1, buf_neuralnetwork);
-    this->knl->setArg(2, buf_task_data_transform);
-    this->knl->setArg(3, *this->buf_taskdata);
-    this->knl->setArg(4, number_of_networks);
-    std::cout << "Buff "  <<std::endl << std::flush;
+    this->knl_learn->setArg(0, buf_neural_network_transform);
+    this->knl_learn->setArg(1, buf_neuralnetwork);
+    this->knl_learn->setArg(2, *this->buf_task_data_transform);
+    this->knl_learn->setArg(3, *this->buf_taskdata);
+    this->knl_learn->setArg(4, number_of_networks);
     // return 0;
     // int global_x = 1024;
     // if (number_of_neurons * number_of_networks <= 1024) {
@@ -183,17 +193,25 @@ void NetworksRunner::run_networks() {
     }
     int global_z = (global_y - 1) / 256 + 1;
     global_y = (global_y - 1) % 256 + 1;
-    std::cout << global_y << " x " << global_z << std::endl;
-    std::cout << "number of networks " << number_of_networks <<std::endl << std::flush;
-    // return;
-    // std::chrono::high_resolution_clock::time_point t1 = std::chrono::high_resolution_clock::now();
+    int rounded_neurons = this->max_neurons;
+    for (int i = 1; i <= 1024; i *= 2) {
+        if (rounded_neurons <= i) {
+            rounded_neurons = i;
+            break;
+        }
+    }
+    if (verbose) {
+        std::cout << " STARTING TRAINING:" << std::endl;
+        // std::cout << " Workgroups " << rounded_neurons << "x" << global_y << "x" << global_z << std::endl;
+    }
+    std::chrono::high_resolution_clock::time_point t1 = std::chrono::high_resolution_clock::now();
     while(!this->has_all_finished(transforms, number_of_networks)) {
-        status = this->queue->enqueueNDRangeKernel(*this->knl,
+        status = this->queue->enqueueNDRangeKernel(*this->knl_learn,
                                                 NullRange,
                                                 // NDRange(global_x, global_y),
                                                 // NDRange(number_of_neurons),
-                                                NDRange(256, global_y, global_z),
-                                                NDRange(256, 1, 1),
+                                                NDRange(rounded_neurons, global_y, global_z),
+                                                NDRange(rounded_neurons, 1, 1),
                                             NULL,
                                             NULL);
         CHECK_CL_ERROR(status, "cl::Queue.enqueueNDRangeKernel()");
@@ -208,8 +226,10 @@ void NetworksRunner::run_networks() {
         CHECK_CL_ERROR(status, "cl::Queue.enqueueReadBuffer()");
         // break;
     }
-    // std::chrono::high_resolution_clock::time_point t2 = std::chrono::high_resolution_clock::now();
-    // std::cout << "Duration: " << (std::chrono::duration_cast<std::chrono::microseconds>( t2 - t1 ).count() / 1000) / 1000. << "s" << std::endl;
+    std::chrono::high_resolution_clock::time_point t2 = std::chrono::high_resolution_clock::now();
+    if (verbose) {
+        std::cout << "  Duration: " << (std::chrono::duration_cast<std::chrono::microseconds>( t2 - t1 ).count()) / 1000000. << "s" << std::endl;
+    }
     status = this->queue->enqueueReadBuffer(   buf_neuralnetwork,
                                                 CL_TRUE,
                                                 0,
@@ -224,10 +244,13 @@ void NetworksRunner::run_networks() {
     // this->networks_container->neural_networks[0]->print(this->networks_container->taskData.learningOutputs);
     // this->networks_container->neural_networks[1]->print(this->networks_container->taskData.learningOutputs);
     // std::cout << "currentSquareErrorCounter " << this->networks_container->neural_networks[0]->currentSquareErrorCounter<<std::endl;
-    // for (int i = 0; i < this->networks_container->neural_networks[0]->criteria.maxEpochs; i++) {
-    //     std::cout << this->networks_container->neural_networks[0]->squareErrorHistory[i] << " ";
-    // }
-    std::cout << std::endl;
+    if (verbose) {
+        // std::cout << " accurancies: ";
+        // for (int i = 0; i < this->networks_container->neural_networks[0]->criteria.maxEpochs; i++) {
+        //     std::cout << this->networks_container->neural_networks[0]->squareErrorHistory[i] << " ";
+        // }
+        // std::cout << std::endl << std::endl;
+    }
     // for (int i = 0; i < this->networks_container->neural_networks[0]->criteria.maxEpochs; i++) {
     //     std::cout << this->networks_container->neural_networks[1]->squareErrorHistory[i] << " ";
     // }
@@ -242,4 +265,131 @@ void NetworksRunner::run_networks() {
     // std::cout << ((float*)neural_network_buffer)[2] << " " << neural_network_buffer_size / 4 << std::endl;
     // std::cout << ((float*)neural_network_buffer)[5] << std::endl;
     // std::cout << ((float*)neural_network_buffer)[255] << std::endl << std::flush;
+}
+
+/**
+ * Runs neural networks from container on GPU device.
+ */
+void NetworksRunner::run_networks_prediction(int number_of_networks, bool verbose) {
+    cl_int status;
+    // this->networks_container->init_networks();
+    void *neural_network_buffer = this->networks_container->get_neural_network_buffer();
+    int neural_network_buffer_size = this->networks_container->get_neural_network_buffer_size();
+    neural_network_transform_t * transforms = this->networks_container->get_transforms();
+    int transforms_size = this->networks_container->get_transforms_size();
+    if (number_of_networks == 0) {
+        return;
+    }
+
+    /**
+     * Create buffers
+     */
+    Buffer buf_neural_network_transform(*this->ctx,
+                    CL_MEM_READ_ONLY,
+                    transforms_size,
+                    (void *)NULL,
+                    &status);
+    CHECK_CL_ERROR(status, "cl::Buffer");
+
+    Buffer buf_neuralnetwork(*this->ctx,
+                    CL_MEM_READ_WRITE,
+                    neural_network_buffer_size,
+                    NULL,
+                    &status);
+    CHECK_CL_ERROR(status, "cl::Buffer");
+
+    /**
+     * Transfer to device
+     */
+    status = this->queue->enqueueWriteBuffer(   buf_neural_network_transform,
+                                CL_FALSE,
+                                0,
+                                transforms_size,
+                                transforms,
+                                NULL,
+                                NULL);
+    CHECK_CL_ERROR(status, "cl::Queue.enqueueWriteBuffer()");
+    
+    status = this->queue->enqueueWriteBuffer(   buf_neuralnetwork,
+                                CL_FALSE,
+                                0,
+                                neural_network_buffer_size,
+                                neural_network_buffer,
+                                NULL,
+                                NULL);
+    CHECK_CL_ERROR(status, "cl::Queue.enqueueWriteBuffer()");
+   
+    status = this->queue->finish();
+    // this->networks_container->neural_networks[0]->print(this->networks_container->taskData.learningOutputs);
+    /**
+     * Run kernel
+     */
+    this->knl_predict->setArg(0, buf_neural_network_transform);
+    this->knl_predict->setArg(1, buf_neuralnetwork);
+    this->knl_predict->setArg(2, *this->buf_task_data_transform);
+    this->knl_predict->setArg(3, *this->buf_taskdata);
+    this->knl_predict->setArg(4, number_of_networks);
+
+
+    int dec_number_of_networks = number_of_networks - 1;
+    int global_y = 1;
+    while(dec_number_of_networks > 0) {
+        dec_number_of_networks = dec_number_of_networks >> 1;
+        global_y = global_y << 1;
+    }
+    int global_z = (global_y - 1) / 256 + 1;
+    global_y = (global_y - 1) % 256 + 1;
+    int rounded_neurons = this->max_neurons;
+    for (int i = 1; i <= 1024; i *= 2) {
+        if (rounded_neurons <= i) {
+            rounded_neurons = i;
+            break;
+        }
+    }
+    if (verbose) {
+        std::cout << " STARTING PREDICTION:" << std::endl;
+        // std::cout << " Workgroups " << rounded_neurons << "x" << global_y << "x" << global_z << std::endl;
+    }
+    std::chrono::high_resolution_clock::time_point t1 = std::chrono::high_resolution_clock::now();
+    status = this->queue->enqueueNDRangeKernel(*this->knl_predict,
+                                            NullRange,
+                                            // NDRange(global_x, global_y),
+                                            // NDRange(number_of_neurons),
+                                            NDRange(rounded_neurons, global_y, global_z),
+                                            NDRange(rounded_neurons, 1, 1),
+                                        NULL,
+                                        NULL);
+    CHECK_CL_ERROR(status, "cl::Queue.enqueueNDRangeKernel()");
+    status = this->queue->finish();
+    CHECK_CL_ERROR(status, "cl::Queue.finish()");
+
+    status = this->queue->enqueueReadBuffer(   buf_neural_network_transform,
+                                        CL_TRUE,
+                                        0,
+                                        transforms_size,
+                                        transforms);
+    CHECK_CL_ERROR(status, "cl::Queue.enqueueReadBuffer()");
+
+    std::chrono::high_resolution_clock::time_point t2 = std::chrono::high_resolution_clock::now();
+    if (verbose) {
+        std::cout << "  Duration: " << (std::chrono::duration_cast<std::chrono::microseconds>( t2 - t1 ).count()) / 1000000. << "s" << std::endl;
+    }
+    status = this->queue->enqueueReadBuffer(   buf_neuralnetwork,
+                                                CL_TRUE,
+                                                0,
+                                                neural_network_buffer_size,
+                                                neural_network_buffer);
+    CHECK_CL_ERROR(status, "cl::Queue.enqueueReadBuffer()");
+
+     status = this->queue->enqueueReadBuffer(*this->buf_taskdata,
+                                            CL_TRUE,
+                                            0,
+                                            this->task_data_buffer_size,
+                                            this->task_data_buffer);
+
+    CHECK_CL_ERROR(status, "cl::Queue.enqueueReadBuffer()");
+
+    // std::cout << ((float*)this->task_data_buffer)[6290] << " " << ((float*)this->task_data_buffer)[6291] << std::endl;
+
+    this->networks_container->update_networks();
 }

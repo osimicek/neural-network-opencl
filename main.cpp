@@ -13,11 +13,12 @@ void print_help() {
             "\t-i: prints available OpenCL platforms and devices\n"
             "\t-p: specify OpenCL platform\n"
             "\t-d: specify OpenCL device\n"
+            "\t-g: number of generation of Genetic algorithm\n"
+            "\t-w: number of parallel networks (size of population)\n"
             "\t-e: epochs of training\n"
             "\t-m: minimum layers\n"
             "\t-x: maximum layers\n"
             "\t-n: (maximum) number of neurons\n"
-            "\t-w: number of parallel networks (size of population)\n"
             "Benchmark options -pdenw and:  \n"
             "\t-b: allow benchmark\n"
             "\t-l: number of layers\n"
@@ -91,9 +92,18 @@ int main(int argc, char **argv) {
     }
     NetworksContainer networks_container;
     networks_container.load_input_data(taks_path);
-    NetworksRunner networks_runner(platform, device, &networks_container);
-    networks_runner.write_task_data();
+    
     if (bench) {
+        
+
+        int required_shared_memory = num_of_layers + 2 +
+                                2 * (num_of_layers * neurons + networks_container.inputVectorSize + networks_container.outputVectorSize) + 
+                                networks_container.outputVectorSize + epochs; // layers + errors + values + output + epochs
+        std::cout << "SM " << required_shared_memory << std::endl;
+        networks_container.shared_memory_per_network = required_shared_memory;
+        NetworksRunner networks_runner(platform, device, &networks_container);
+        networks_runner.write_task_data();
+        printf("Bench test: \n network: %dx%d,  num:%d,  epochs: %d\n", num_of_layers, neurons, num_of_networks, epochs);
         std::vector<NeuralNetwork *> * neural_networks = networks_container.get_neural_networks_storage();
         networks_container.set_size(num_of_networks);
         for (int i = 0; i < num_of_networks; i++) {
@@ -102,8 +112,26 @@ int main(int argc, char **argv) {
             nn->set_max_epochs(epochs);
             neural_networks->push_back(nn);
         }
+        networks_runner.run_networks(true);
+
+        // PREDICTION
+        int best_epoch = (*neural_networks)[0]->bestSquareError[0] + 1;
+        neural_networks->clear();
+        networks_container.set_size(1);
+        NeuralNetwork *nn = new NeuralNetwork;
+        nn->set_hidden_layers(num_of_layers, neurons);
+        nn->set_max_epochs(epochs);
+        neural_networks->push_back(nn);
         networks_runner.run_networks();
+        networks_container.load_prediction_data("./neural_network_c/data/cancer_predict.dt");
+        networks_runner.write_task_data();
+        networks_runner.run_networks_prediction(num_of_networks, true);
+        // networks_container.store_prediction("out.txt");
+
+
     } else {
+        NetworksRunner networks_runner(platform, device, &networks_container);
+        networks_runner.write_task_data();
         GeneticAlgorithm ga(&networks_container, &networks_runner);
         ga.set_max_generations(generations);
         ga.set_min_layers(min_layers);

@@ -10,7 +10,6 @@
  * creation of common buffer for OpenCL usage.
  */
 NetworksContainer::NetworksContainer(int size) {
-    std::cout << size << std::endl; 
     this->set_size(size);
     // this->neural_networks[0]->set_hidden_layers(1, 20);
     // this->neural_networks_storage[1]->set_hidden_layers(1, 20);
@@ -88,7 +87,6 @@ void NetworksContainer::update_networks() {
  * Reads and stores input vectors for learning and testing neural network.
  */
 void NetworksContainer::load_input_data(const char* filename) {
-    std::cout << "ok--" << std::endl << std::flush;
     std::ifstream input(filename);
     
     uint inputVectorSize, outputVectorSize, totalLearningLines, totalTestLines;
@@ -134,7 +132,6 @@ void NetworksContainer::load_input_data(const char* filename) {
     this->task_data_transform.taskData_totalTestLines = totalTestLines;
 
     for (unsigned int row = 0; row < totalLearningLines; row++) {
-        // break;
         for (unsigned int inputCol = 0; inputCol < inputVectorSize; inputCol++) {
             input >> value;
             this->taskData.learningInputs[learningInputCounter] = value;
@@ -148,7 +145,6 @@ void NetworksContainer::load_input_data(const char* filename) {
         }
     }
     for (unsigned int row = 0; row < totalTestLines; row++) {
-        // break;
         for (unsigned int inputCol = 0; inputCol < inputVectorSize; inputCol++) {
             input >> value;
             this->taskData.testInputs[testInputCounter] = value;
@@ -163,8 +159,72 @@ void NetworksContainer::load_input_data(const char* filename) {
     }
     this->taskData.totalLearningLines = totalLearningLines;
     this->taskData.totalTestLines = totalTestLines;
-    std::cout << "total: " << taskData.totalLearningLines << " " << taskData.totalTestLines << std::endl; 
     input.close();
+}
+
+
+     /**
+     * Reads and stores input vectors for neural network prediction.
+     */
+void NetworksContainer::load_prediction_data(const char* filename) {
+    std::ifstream input(filename);
+    
+    uint inputVectorSize, outputVectorSize, totalLines, totalTestLines;
+    input >> inputVectorSize;
+    input >> outputVectorSize;
+    input >> totalLines;
+
+    this->inputVectorSize = inputVectorSize;
+    this->outputVectorSize = outputVectorSize;
+
+    int learningInputSize = totalLines * inputVectorSize;
+    int learningOutputSize = totalLines * outputVectorSize;
+    this->task_data_buffer_size = (learningInputSize +
+                                learningOutputSize) * sizeof(float);
+    this->task_data_buffer = _mm_malloc(this->task_data_buffer_size, MEMORY_ALIGN);
+    if (this->task_data_buffer == NULL) {
+        fprintf(stderr,"Out of memory\n");
+        exit(-1);
+    }
+
+    this->taskData.learningInputs = (float *) this->task_data_buffer;
+    this->taskData.learningOutputs = &((float *)this->task_data_buffer)[learningInputSize];
+
+    this->task_data_transform.taskData_b_offset_learningInputs = 0;
+    this->task_data_transform.taskData_b_offset_learningOutputs = learningInputSize;
+    this->task_data_transform.taskData_b_size = learningInputSize + learningOutputSize;
+    this->task_data_transform.taskData_totalLearningLines = totalLines;
+    float value;
+    unsigned long int learningInputCounter = 0;
+    for (unsigned int row = 0; row < totalLines; row++) {
+        for (unsigned int inputCol = 0; inputCol < inputVectorSize; inputCol++) {
+            input >> value;
+            this->taskData.learningInputs[learningInputCounter] = value;
+            learningInputCounter++;
+        }
+    }
+
+    this->taskData.totalLearningLines = totalLines;
+    input.close();
+}
+
+/**
+ * Stores output vectors for neural network prediction.
+ */
+void NetworksContainer::store_prediction(const char* filename) {
+    std::ofstream out(filename);
+
+    for (unsigned int row = 0; row < this->taskData.totalLearningLines; row++) {
+        int numOfOutputNeurons = this->outputVectorSize;
+        for (int output = 0; output < numOfOutputNeurons; output++) {
+            out << this->taskData.learningOutputs[output + row * numOfOutputNeurons];
+            if (output != numOfOutputNeurons -1) {
+                out << " ";
+            }
+        }
+        out << std::endl;
+    }
+    out.close();
 }
 
 /**

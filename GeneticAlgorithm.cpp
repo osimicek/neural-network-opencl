@@ -278,6 +278,8 @@ void GeneticAlgorithm::run() {
         printf("Best configuration: \n  square error: %f\n  learning factor: %f\n  neurons: %d\n  hidden layers: %d\n",
             this->best_measure ,this->best_learning_factor,this->best_number_of_neurons, this->best_number_of_hidden_layers);
         std::cout << generation<<std::flush << std::endl;
+
+        this->networks_runner->set_max_neurons(this->max_neurons);
         this->networks_runner->run_networks();
 
         // return;
