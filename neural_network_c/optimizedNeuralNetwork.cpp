@@ -82,7 +82,7 @@ namespace optimized {
             int neurons = layers[layer];
             printf("\t");
             for (int neuron = 0; neuron < neurons; neuron++) {
-                printf("%6.3f  ", errors[neuron + valueOffset]);
+                printf("%6.4f  ", errors[neuron + valueOffset]);
             }
             printf("\n");
             valueOffset += neurons;
@@ -437,10 +437,66 @@ namespace optimized {
         #endif 
     }
 
+
+    /**
+     * Performs a prediction cycle of neural network. Input vector is transformed to output vector.
+     * Output vector si stored in suplided data array.
+     */
+    void neuralPredictionCycle(NeuralNetworkT *neuralNetwork, 
+                        float *predictionOutput) {
+        
+        int numOfLayers = neuralNetwork->setup.numOfLayers;
+        int * __restrict layers = neuralNetwork->setup.layers;
+        float * __restrict values = neuralNetwork->state.values;
+        float * __restrict weights = neuralNetwork->state.weights;
+
+        int valueOffset = 0;
+        int prevValueOffset = 0;
+        int weightOffset = 0;
+
+        // foward value computation
+        for (int layer = 1; layer < numOfLayers; layer++) {
+            int neurons = layers[layer];
+            int prevNeurons = layers[layer - 1];
+            valueOffset += prevNeurons;
+            for (int neuron = 0; neuron < neurons; neuron++) {
+                float value = 0.f;
+                #pragma ivdep
+                for (int prevNeuron = 0; prevNeuron < prevNeurons; prevNeuron++) {
+                    value += values[prevNeuron + prevValueOffset] * weights[prevNeuron + weightOffset];
+                    // std::cout << "waatch " << prevNeuron + prevValueOffset <<" * " << prevNeuron + weightOffset << "      "<< prevValueOffset<< std::endl;
+                }
+                // std::cout << value << "  ";
+                values[neuron + valueOffset] = 1.f / (1.f + exp(-value));
+                weightOffset += prevNeurons;
+            }
+            prevValueOffset += prevNeurons;
+        }
+
+        // error computation backwards
+        int numOfOutputNeurons = layers[numOfLayers - 1];
+        float predictionCandidateValue = -1.f;
+        int predictionCandidateIndex = 0;
+        for (int neuron = 0; neuron < numOfOutputNeurons; neuron++) {
+            float value = values[neuron + valueOffset];
+            float diff;
+                // conversion to bool
+                int classValue = round(value);
+                predictionOutput[neuron] = 0.f;
+
+                if (classValue == 1 && predictionCandidateValue < value) {
+                    predictionCandidateValue = value;
+                    predictionCandidateIndex = neuron;
+                }
+            
+        }
+        predictionOutput[predictionCandidateIndex] = 1.f;
+    }
+
     /**
      * Performs trainign and testing of neural network.
      */
-    void runOptimizedNeuralNetwork(NeuralNetworkT *neuralNetwork, const char* taskFilename) {
+    void runOptimizedNeuralNetwork(NeuralNetworkT *neuralNetwork, const char* taskFilename, bool verbose) {
         TaskData taskData;
 
         loadInputData(taskFilename, neuralNetwork, &taskData);
@@ -450,6 +506,9 @@ namespace optimized {
 
         
         float generalizationLoss, progress;
+        if (verbose) {
+            std::cout << " STARTING TRAINING:" << std::endl;
+        }
         std::chrono::high_resolution_clock::time_point t1 = std::chrono::high_resolution_clock::now();
         for (neuralNetwork->state.epoch = 0; neuralNetwork->state.epoch < neuralNetwork->criteria.maxEpochs; neuralNetwork->state.epoch++) {
             neuralNetwork->state.learningLine = 0;
@@ -470,7 +529,7 @@ namespace optimized {
                 //     return;
                 // }
                 // counter ++;
-                // if (neuralNetwork->state.learningLine >= 1 && neuralNetwork->state.epoch >= 0) {
+                // if (neuralNetwork->state.learningLine >= 15 && neuralNetwork->state.epoch >= 0) {
                 //     printNeuralNetwork(neuralNetwork, expectedOutput);
                 //     std::cout << "currentSquareErrorCounter " << neuralNetwork->currentSquareErrorCounter<<std::endl;
                 //     return;
@@ -512,16 +571,18 @@ namespace optimized {
             // std::cout << neuralNetwork->squareErrorHistory[neuralNetwork->state.epoch] << "  "<< neuralNetwork->bestSquareError[1]<< "\t"<< generalizationLoss << "\t\t"<< progress<< std::endl;
         }
         std::chrono::high_resolution_clock::time_point t2 = std::chrono::high_resolution_clock::now();
-        std::cout << "Duration: " << (std::chrono::duration_cast<std::chrono::microseconds>( t2 - t1 ).count() / 1000) / 1000. << "s" << std::endl;
+        if (verbose) {
+            std::cout << " Duration: " << (std::chrono::duration_cast<std::chrono::microseconds>( t2 - t1 ).count() ) / 1000000. << "s" << std::endl;
+        }
         // float x[2];
         // printNeuralNetwork(neuralNetwork, x);
         neuralNetwork->state.epoch--;
-        printf("NN RESULT: Best avg err: %f Epoch: %f Learn factor: %f \n", neuralNetwork->bestSquareError[1], neuralNetwork->bestSquareError[0], neuralNetwork->setup.learningFactor);
+        // printf("NN RESULT: Best avg err: %f Epoch: %f Learn factor: %f \n", neuralNetwork->bestSquareError[1], neuralNetwork->bestSquareError[0], neuralNetwork->setup.learningFactor);
         
         #if SHOW_CLASSIFICATION_ACCURANCY
         printClassificationAccurancy(&(neuralNetwork->classificationAccurancyHistory[4 * neuralNetwork->setup.layers[neuralNetwork->setup.numOfLayers - 1] * neuralNetwork->state.epoch]), neuralNetwork->setup.layers[neuralNetwork->setup.numOfLayers - 1]);
         #endif
-        std::cout << "ccurrentSquareErrorCounter " << neuralNetwork->currentSquareErrorCounter<<std::endl;
+        // std::cout << "ccurrentSquareErrorCounter " << neuralNetwork->currentSquareErrorCounter<<std::endl;
         // for (int i = 0; i < neuralNetwork->criteria.maxEpochs; i++) {
         //     std::cout << neuralNetwork->squareErrorHistory[i] << " ";
         // }
@@ -530,5 +591,48 @@ namespace optimized {
         // deleteNeuralNetwork(neuralNetwork);
         // deleteTaskData(&taskData);
         free(expectedOutput);
+    }
+
+
+    /**
+     * Performs prediction using neural network.
+     */
+    void runNeuralNetworkPrediction(NeuralNetworkT *neuralNetwork, const char* taskFilename, bool verbose) {
+        TaskData taskData;
+
+        loadPredictionData(taskFilename, neuralNetwork, &taskData);
+        float *predictionOutput;
+        
+        float generalizationLoss, progress;
+        wait();
+        if (verbose) {
+            std::cout << " STARTING PREDICTION:" << std::endl;
+        }
+        std::chrono::high_resolution_clock::time_point t1 = std::chrono::high_resolution_clock::now();
+        neuralNetwork->state.learningLine = 0;
+        /**
+         * Prediction
+         */
+        while (getPredictionVector(neuralNetwork, &taskData, &predictionOutput)) {
+            neuralPredictionCycle(neuralNetwork, predictionOutput);
+            // if (counter > 10) {
+            //     #if USE_PAPI_LEARN_AND_TEST
+            //     (*papi_routines)["o_network_learning"].Stop();
+            //     #endif
+            //     return;
+            // }
+            // counter ++;
+            // if (neuralNetwork->state.learningLine >= 15 && neuralNetwork->state.epoch >= 0) {
+            //     printNeuralNetwork(neuralNetwork, expectedOutput);
+            //     std::cout << "currentSquareErrorCounter " << neuralNetwork->currentSquareErrorCounter<<std::endl;
+            //     return;
+            // }
+        }
+
+        std::chrono::high_resolution_clock::time_point t2 = std::chrono::high_resolution_clock::now();
+        if (verbose) {
+            std::cout << "  Duration: " << (std::chrono::duration_cast<std::chrono::microseconds>( t2 - t1 ).count() ) / 1000000. << "s" << std::endl;
+        }
+        // storePrediction("out.txt", neuralNetwork, &taskData);
     }
 }

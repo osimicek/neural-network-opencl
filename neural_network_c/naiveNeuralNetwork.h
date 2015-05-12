@@ -51,7 +51,10 @@ namespace naive {
 
     bool getLearningVector(NeuralNetworkT *neuralNetwork, TaskData *taskData, float *expectedOutput);
     bool getTestVector(NeuralNetworkT *neuralNetwork, TaskData *taskData, float *expectedOutput);
+    bool getPredictionVector(NeuralNetworkT *neuralNetwork, TaskData *taskData, float **predictionOutput);
     void loadInputData(const char* filename, NeuralNetworkT *neuralNetwork, TaskData *taskData);
+    void loadPredictionData(const char* filename, NeuralNetworkT *neuralNetwork, TaskData *taskData);
+    void storePrediction(const char* filename, NeuralNetworkT *neuralNetwork, TaskData *taskData);
     void deleteTaskData(TaskData *taskData);
 }
 #endif

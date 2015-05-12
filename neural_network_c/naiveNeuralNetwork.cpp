@@ -189,6 +189,23 @@ namespace naive {
     }
 
     /**
+     * Returns a prediction vector for neural network.
+     */
+    bool getPredictionVector(NeuralNetworkT *neuralNetwork, TaskData *taskData, float **predictionOutput) {
+
+        if (neuralNetwork->state.learningLine >= taskData->totalLearningLines) {
+            return false;
+        }
+        for (int input = 0; input < neuralNetwork->setup.layers[0]; input++) {
+            neuralNetwork->state.values[input] = taskData->learningInputs[input + neuralNetwork->state.learningLine * neuralNetwork->setup.layers[0]];
+        }
+
+        *predictionOutput = &(taskData->learningOutputs[neuralNetwork->state.learningLine * neuralNetwork->setup.layers[neuralNetwork->setup.numOfLayers - 1]]);
+        neuralNetwork->state.learningLine ++;
+        return true;
+    }
+
+    /**
      * Reads and stores input vectors for learning and testing neural network.
      */
     void loadInputData(const char* filename, NeuralNetworkT *neuralNetwork, TaskData *taskData) {
@@ -243,6 +260,54 @@ namespace naive {
         taskData->totalTestLines = totalTestLines;
     }
 
+     /**
+     * Reads and stores input vectors for neural network prediction.
+     */
+    void loadPredictionData(const char* filename, NeuralNetworkT *neuralNetwork, TaskData *taskData) {
+        std::ifstream input(filename);
+        
+        int inputVectorSize, outputVectorSize, totalLines, totalTestLines;
+        input >> inputVectorSize;
+        input >> outputVectorSize;
+        input >> totalLines;
+
+        neuralNetwork->setup.layers[0] = inputVectorSize;
+        neuralNetwork->setup.layers[neuralNetwork->setup.numOfLayers - 1] = outputVectorSize;
+        float value;
+        unsigned long int learningInputCounter = 0;
+        taskData->learningInputs = (float *) malloc (totalLines * inputVectorSize * sizeof(float));
+        // std::cout << filename<<" " <<inputVectorSize << " " << outputVectorSize << " " << totalLines << std::endl;
+        taskData->learningOutputs = (float *) malloc (totalLines * outputVectorSize * sizeof(float));
+        for (unsigned int row = 0; row < totalLines; row++) {
+            for (unsigned int inputCol = 0; inputCol < inputVectorSize; inputCol++) {
+                input >> value;
+                taskData->learningInputs[learningInputCounter] = value;
+                learningInputCounter++;
+            }
+        }
+        taskData->totalLearningLines = totalLines;
+        input.close();
+    }
+
+
+    /**
+     * Stores output vectors for neural network prediction.
+     */
+    void storePrediction(const char* filename, NeuralNetworkT *neuralNetwork, TaskData *taskData) {
+        std::ofstream out(filename);
+
+        for (unsigned int row = 0; row < taskData->totalLearningLines; row++) {
+            int numOfOutputNeurons = neuralNetwork->setup.layers[neuralNetwork->setup.numOfLayers - 1];
+            for (int output = 0; output < numOfOutputNeurons; output++) {
+                out << taskData->learningOutputs[output + row * neuralNetwork->setup.layers[neuralNetwork->setup.numOfLayers - 1]];
+                if (output != numOfOutputNeurons -1) {
+                    out << " ";
+                }
+            }
+            out << std::endl;
+        }
+        out.close();
+    }
 
     /**
      * Initialization of neural network
