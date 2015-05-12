@@ -94,13 +94,12 @@ int main(int argc, char **argv) {
     networks_container.load_input_data(taks_path);
     
     if (bench) {
-        
-
         int required_shared_memory = num_of_layers + 2 +
                                 2 * (num_of_layers * neurons + networks_container.inputVectorSize + networks_container.outputVectorSize) + 
                                 networks_container.outputVectorSize + epochs; // layers + errors + values + output + epochs
         networks_container.shared_memory_per_network = required_shared_memory;
         NetworksRunner networks_runner(platform, device, &networks_container);
+        networks_runner.set_max_neurons(neurons);
         networks_runner.write_task_data();
         printf("Bench test: \n network: %dx%d,  num:%d,  epochs: %d\n", num_of_layers, neurons, num_of_networks, epochs);
         std::vector<NeuralNetwork *> * neural_networks = networks_container.get_neural_networks_storage();
