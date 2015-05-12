@@ -34,7 +34,7 @@ info:
 	./main -i
 
 bench:
-	. ./bench_tests.sh
+	. ./bench_tests.sh | tee bench_output.txt
 
 .tests: $(tests_obj) tests.o
 	$(CC) $(tests_obj) tests.o -o  tests $(CPPFLAGS)
