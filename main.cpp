@@ -99,7 +99,6 @@ int main(int argc, char **argv) {
         int required_shared_memory = num_of_layers + 2 +
                                 2 * (num_of_layers * neurons + networks_container.inputVectorSize + networks_container.outputVectorSize) + 
                                 networks_container.outputVectorSize + epochs; // layers + errors + values + output + epochs
-        std::cout << "SM " << required_shared_memory << std::endl;
         networks_container.shared_memory_per_network = required_shared_memory;
         NetworksRunner networks_runner(platform, device, &networks_container);
         networks_runner.write_task_data();

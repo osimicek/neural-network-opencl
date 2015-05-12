@@ -28,6 +28,14 @@ endif
 main: $(neuralnetwork_obj) $(EXECUTABLE).o
 	$(CC) $(neuralnetwork_obj) $(EXECUTABLE).o -o  $(EXECUTABLE) $(CPPFLAGS)
 
+tests: .tests
+
+info:
+	./main -i
+
+bench:
+	. ./bench_tests.sh
+
 .tests: $(tests_obj) tests.o
 	$(CC) $(tests_obj) tests.o -o  tests $(CPPFLAGS)
 	./tests
