@@ -19,6 +19,9 @@ void print_help() {
             "\t-m: minimum layers\n"
             "\t-x: maximum layers\n"
             "\t-n: (maximum) number of neurons\n"
+            "\t-t: path to training data set\n"
+            "\t-c: path to classification data set\n"
+            "\t-o: path to classification output\n"
             "Benchmark options -pdenw and:  \n"
             "\t-b: allow benchmark\n"
             "\t-l: number of layers\n"
@@ -27,6 +30,8 @@ void print_help() {
 
 int main(int argc, char **argv) {
     const char *taks_path = "./neural_network_c/data/cancer.dt";
+    const char *classification_path = "./neural_network_c/data/cancer_predict.dt";
+    const char *classification_output = "out.txt";
     char c;
     uint platform = 0;
     uint device = 0;
@@ -83,6 +88,12 @@ int main(int argc, char **argv) {
             case 't':
                 taks_path = optarg;
                 break;
+            case 'c':
+                classification_path = optarg;
+                break;
+            case 'o':
+                classification_output = optarg;
+                break;
             case '?':
                 fprintf (stderr, "Invalid argument.\n");
                 return 1;
@@ -104,7 +115,7 @@ int main(int argc, char **argv) {
         printf("Bench test: \n network: %dx%d,  num:%d,  epochs: %d\n", num_of_layers, neurons, num_of_networks, epochs);
         std::vector<NeuralNetwork *> * neural_networks = networks_container.get_neural_networks_storage();
         networks_container.set_size(num_of_networks);
-        for (int i = 0; i < num_of_networks; i++) {
+        for (uint i = 0; i < num_of_networks; i++) {
             NeuralNetwork *nn = new NeuralNetwork;
             nn->set_hidden_layers(num_of_layers, neurons);
             nn->set_max_epochs(epochs);
@@ -112,19 +123,21 @@ int main(int argc, char **argv) {
         }
         networks_runner.run_networks(true);
 
-        // PREDICTION
-        int best_epoch = (*neural_networks)[0]->bestSquareError[0] + 1;
+        // CLASSIFICATION
+        int best_epoch = (*neural_networks)[0]->get_best_square_error();
+        int best_learning_factor = (*neural_networks)[0]->setup.learningFactor;
         neural_networks->clear();
         networks_container.set_size(1);
         NeuralNetwork *nn = new NeuralNetwork;
         nn->set_hidden_layers(num_of_layers, neurons);
-        nn->set_max_epochs(epochs);
+        nn->set_max_epochs(best_epoch + 1);
+        nn->set_learning_factor(best_learning_factor);
         neural_networks->push_back(nn);
         networks_runner.run_networks();
-        networks_container.load_prediction_data("./neural_network_c/data/cancer_predict.dt");
+        networks_container.load_prediction_data(classification_path);
         networks_runner.write_task_data();
         networks_runner.run_networks_prediction(num_of_networks, true);
-        // networks_container.store_prediction("out.txt");
+        networks_container.store_prediction(classification_output);
 
 
     } else {
@@ -139,7 +152,23 @@ int main(int argc, char **argv) {
         ga.set_network_epochs(epochs);
         ga.set_population_size(num_of_networks);
         ga.init();
-        ga.run();
+        ga.run(true);
+
+        // CLASSIFICATION
+        std::vector<NeuralNetwork *> * neural_networks = networks_container.get_neural_networks_storage();
+        
+        neural_networks->clear();
+        networks_container.set_size(1);
+        NeuralNetwork *nn = new NeuralNetwork;
+        nn->set_hidden_layers(ga.best_number_of_hidden_layers, ga.best_number_of_neurons);
+        nn->set_max_epochs(ga.best_number_of_epochs + 1);
+        nn->set_learning_factor(ga.best_learning_factor);
+        neural_networks->push_back(nn);
+        networks_runner.run_networks();
+        networks_container.load_prediction_data(classification_path);
+        networks_runner.write_task_data();
+        networks_runner.run_networks_prediction(num_of_networks, true);
+        networks_container.store_prediction(classification_output);
     }
 
 

@@ -125,6 +125,7 @@ class NeuralNetwork {
         int get_required_buffer_size();
         int get_required_shared_memory_size();
         float get_best_square_error();
+        int get_best_epoch();
 };
 
 #endif

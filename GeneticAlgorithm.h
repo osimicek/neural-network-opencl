@@ -7,11 +7,12 @@
 class GeneticAlgorithm {
     private:
         float best_measure;
+        int number_of_elite;
+    public:
         int best_number_of_neurons;
         int best_number_of_hidden_layers;
-        int number_of_elite;
+        int best_number_of_epochs;
         float best_learning_factor;
-    public:
         NetworksContainer *networks_container;
         NetworksRunner *networks_runner;
         std::vector<uint> chromosomes;
@@ -40,7 +41,7 @@ class GeneticAlgorithm {
                                uint **chromosome);
         void generate_fitnesses();
         void evolution();
-        void run();
+        void run(bool verbose = false);
         void set_max_generations(int value);
         void set_min_layers(int value);
         void set_max_layers(int value);

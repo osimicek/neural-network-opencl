@@ -447,6 +447,7 @@ void neuralPredictCycle(neuralNetwork_t *neuralNetwork,
     if (neuron < neurons) {
         expectedOutput[neuron] = 0.f;
     }
+
     float predictionCandidateValue = -1.f;
     int predictionCandidateIndex = 0;
     for (int neur = 0; neur < neurons; neur++) {
@@ -552,7 +553,7 @@ uint get_interupt_limit(neuralNetwork_t *neuralNetwork) {
     for (int i = 1; i < neuralNetwork->setup.numOfLayers; i++) {
         number_of_weights += neuralNetwork->setup.layers[i] * neuralNetwork->setup.layers[i - 1];
     }
-    return 10000 / ((number_of_weights / 5000) + 1) + 1;
+    return 9000 / ((number_of_weights / 2000) + 1) + 1;
 }
 
 __kernel void run_neural_network(
@@ -582,11 +583,11 @@ __kernel void run_neural_network(
         neuralNetwork.state.errors = sharedMemory + neural_network_transform->setup_numOfLayers + neural_network_transform->state_b_size_values;
         importDataStructures(neural_network_transform, task_data_transform, neural_network_buffer, task_data_buffer, &neuralNetwork, &taskData);
         expectedOutput = sharedMemory + neural_network_transform->setup_numOfLayers + neural_network_transform->state_b_size_values + neural_network_transform->state_b_size_errors;
-        uint interupt_limit = get_interupt_limit(&neuralNetwork);
+        uint interupt_limit = get_interupt_limit(&neuralNetwork) * 3; // 1 training cycle = 3, 1 learning cycle = 1 
         for (; neuralNetwork.state.epoch < neuralNetwork.criteria.maxEpochs; neuralNetwork.state.epoch++) {
             while (getLearningVector(&neuralNetwork, &taskData, expectedOutput)) {
                 neuralLearnCycle(&neuralNetwork, expectedOutput, tmp, lid);
-                cycle_counter++;
+                cycle_counter += 3;
                 if (cycle_counter >= interupt_limit) {
                     exportDataStructures(neural_network_transform, neural_network_buffer, &neuralNetwork);
                     return;

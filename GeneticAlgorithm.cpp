@@ -199,10 +199,8 @@ void GeneticAlgorithm::generate_fitnesses() {
             (*measure) = min_measure / 2;
             tmp_min_measure = min_measure / 2;
         }
-        std::cout << "m " << (*measure) << std::endl;
     }
     min_measure = tmp_min_measure;
-    std::cout << "mm " << min_measure << " " << max_measure << std::endl;
     min_measure *= 0.99;
     this->fitnesses.clear();
     for(std::vector<float>::iterator measure = this->measures.begin();
@@ -210,7 +208,6 @@ void GeneticAlgorithm::generate_fitnesses() {
         ++measure) {
         float fitness = 1 / (min_measure - max_measure) *(0.99 * (*measure) + min_measure * 0.01 - max_measure);
         this->fitnesses.push_back(fitness);
-        std::cout << "f " << (fitness) << std::endl;
     }
 }
 
@@ -230,11 +227,11 @@ void GeneticAlgorithm::evolution() {
 
     for (int elite_pair = 0; elite_pair < this->number_of_elite; elite_pair += 2) {
         uint best_index =  std::max_element(evolution_fitnesses.begin(), evolution_fitnesses.end()) - evolution_fitnesses.begin();
-        printf("Max: %d\n", best_index);
+        // printf("Max: %d\n", best_index);
         evolution_fitnesses.erase(evolution_fitnesses.begin() + best_index);
         evolution_chromosomes.erase(evolution_chromosomes.begin() + best_index);
         best_index =  std::max_element(evolution_fitnesses.begin(), evolution_fitnesses.end()) - evolution_fitnesses.begin();
-        printf("Max: %d\n", best_index);
+        // printf("Max: %d\n", best_index);
         evolution_fitnesses.erase(evolution_fitnesses.begin() + best_index);
         evolution_chromosomes.erase(evolution_chromosomes.begin() + best_index);
     }
@@ -253,17 +250,19 @@ void GeneticAlgorithm::evolution() {
 /**
  * Runs genetic algorithm with neural networks throw all generations.
  */
-void GeneticAlgorithm::run() {
+void GeneticAlgorithm::run(bool verbose) {
     std::vector<NeuralNetwork *> * neural_networks = this->networks_container->get_neural_networks_storage();
     this->init();
-
+    if (verbose) {
+        printf("STARTING GENETIC ALGORITHM\n");
+    }
     for (generation = 0; generation < this->max_generations; generation++) {
         neural_networks->clear();
         for(std::vector<uint>::iterator chromosome = this->chromosomes.begin();
             chromosome != this->chromosomes.end();
             ++chromosome) {
             NeuralNetwork *nn = new NeuralNetwork();
-        std::cout << "nn " << this->get_number_of_hidden_layers(*chromosome) << " " << this->get_number_of_neurons(*chromosome) << " "<< this->get_learning_factor(*chromosome) <<" for "<< *chromosome<< std::endl;
+        // std::cout << "nn " << this->get_number_of_hidden_layers(*chromosome) << " " << this->get_number_of_neurons(*chromosome) << " "<< this->get_learning_factor(*chromosome) <<" for "<< *chromosome<< std::endl;
 
             // if (chromosome - this->chromosomes.begin() == 1) {
             //     nn->set_learning_factor(2.2f);
@@ -275,9 +274,9 @@ void GeneticAlgorithm::run() {
 
             neural_networks->push_back(nn);
         }
-        printf("Best configuration: \n  square error: %f\n  learning factor: %f\n  neurons: %d\n  hidden layers: %d\n",
-            this->best_measure ,this->best_learning_factor,this->best_number_of_neurons, this->best_number_of_hidden_layers);
-        std::cout << generation<<std::flush << std::endl;
+        // printf("Best configuration: \n  square error: %f\n  learning factor: %f\n  neurons: %d\n  hidden layers: %d\n",
+            // this->best_measure ,this->best_learning_factor,this->best_number_of_neurons, this->best_number_of_hidden_layers);
+        // std::cout << generation<<std::flush << std::endl;
 
         this->networks_runner->set_max_neurons(this->max_neurons);
         this->networks_runner->run_networks();
@@ -293,19 +292,26 @@ void GeneticAlgorithm::run() {
             if (this->best_measure > measure) {
                 uint chromosome = this->chromosomes[index];
                 this->best_measure = measure;
+                this->best_number_of_epochs = (*neural_network)->get_best_epoch();;
                 this->best_number_of_neurons = this->get_number_of_neurons(chromosome);
                 this->best_number_of_hidden_layers = this->get_number_of_hidden_layers(chromosome);
                 this->best_learning_factor = this->get_learning_factor(chromosome);
             }
             index++;
         }
+        if (verbose) {
+            printf("%d%%\n", (generation * 100) / this->max_generations);
+        }
 
         this->generate_fitnesses();
 
         this->evolution();
     }
-    printf("Best configuration: \n  square error: %f\n  learning factor: %f\n  neurons: %d\n  hidden layers: %d\n",
-            this->best_measure ,this->best_learning_factor,this->best_number_of_neurons, this->best_number_of_hidden_layers);
+    if (verbose) {
+        printf("100%%\n");
+        printf("Best configuration: \n  square error: %f\n  learning factor: %f\n  neurons: %d\n  hidden layers: %d\n\n",
+                this->best_measure ,this->best_learning_factor,this->best_number_of_neurons, this->best_number_of_hidden_layers);
+    }
 }
 
 void GeneticAlgorithm::set_max_generations(int value) {

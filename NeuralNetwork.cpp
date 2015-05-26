@@ -331,7 +331,14 @@ int NeuralNetwork::get_required_shared_memory_size() {
 /**
  * Returns best squer error of neural network
  */
-float NeuralNetwork::get_best_square_error() {
+float NeuralNetwork::get_best_square_error  () {
     return this->bestSquareError[1];
+}
+
+/**
+ * Returns best epoch of neural network
+ */
+int NeuralNetwork::get_best_epoch() {
+    return this->bestSquareError[0];
 }
   
