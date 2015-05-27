@@ -28,17 +28,20 @@ endif
 main: $(neuralnetwork_obj) $(EXECUTABLE).o
 	$(CC) $(neuralnetwork_obj) $(EXECUTABLE).o -o  $(EXECUTABLE) $(CPPFLAGS)
 
-tests: .tests
-
 info:
 	./main -i
 
 bench:
 	. ./bench_tests.sh | tee bench_output.txt
 
+tests: .tests
+	./tests
+
 .tests: $(tests_obj) tests.o
 	$(CC) $(tests_obj) tests.o -o  tests $(CPPFLAGS)
-	./tests
+
+example1:
+	./main -g 5 -n 128 -e 1 -t ./data/gene.dt -c ./data/gene_classification.dt
 
 run:
 	./main

@@ -31,8 +31,8 @@ void print_help() {
 
 int main(int argc, char **argv) {
     srand (time(NULL));
-    const char *taks_path = "./neural_network_c/data/cancer.dt";
-    const char *classification_path = "./neural_network_c/data/cancer_classification.dt";
+    const char *taks_path = "./data/cancer.dt";
+    const char *classification_path = "./data/cancer_classification.dt";
     const char *classification_output = "out.txt";
     char c;
     uint platform = 0;

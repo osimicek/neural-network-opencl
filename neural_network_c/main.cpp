@@ -10,8 +10,8 @@
 void test(int argc, char **argv) {
     char *trainingTaskFilename;
     char *classificationTaskFilename;
-    const char *default_filename = "./data/cancer.dt";
-    const char *default_filename2 = "./data/cancer_classification.dt";
+    const char *default_filename = "../data/cancer.dt";
+    const char *default_filename2 = "../data/cancer_classification.dt";
     trainingTaskFilename = (char *) default_filename;
     classificationTaskFilename = (char *) default_filename2;
     int layers = 1;
@@ -63,7 +63,7 @@ int main(int argc, char **argv)
     int number_of_processes = 1;
     char *filename;
     if (argc < 2) {
-        const char *default_filename = "./data/cancer.dt";
+        const char *default_filename = "../data/cancer.dt";
         filename = (char *) default_filename;
     } else {
         filename = argv[1];

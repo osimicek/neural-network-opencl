@@ -19,7 +19,7 @@ int compare_networks(NeuralNetworkT *neuralNetwork_c, NeuralNetwork *neuralNetwo
 }
 
 int test_11() {
-    const char *filename = "./neural_network_c/data/cancer.dt";
+    const char *filename = "./data/cancer.dt";
     NeuralNetworkT neuralNetwork_c;
     neuralNetwork_c.setup.classification = true;
     neuralNetwork_c.setup.lambda = 1.f;
@@ -58,7 +58,7 @@ int test_11() {
 }
 
 int test_80_80() {
-    const char *filename = "./neural_network_c/data/cancer.dt";
+    const char *filename = "./data/cancer.dt";
     NeuralNetworkT neuralNetwork_c;
     neuralNetwork_c.setup.classification = true;
     neuralNetwork_c.setup.lambda = 1.f;
@@ -97,7 +97,7 @@ int test_80_80() {
 }
 
 int test_11_8() {
-    const char *filename = "./neural_network_c/data/cancer.dt";
+    const char *filename = "./data/cancer.dt";
     NeuralNetworkT neuralNetwork_c;
     neuralNetwork_c.setup.classification = true;
     neuralNetwork_c.setup.lambda = 1.f;
@@ -138,7 +138,7 @@ int test_11_8() {
 
 
 int test_container() {
-    const char *filename = "./neural_network_c/data/cancer.dt";
+    const char *filename = "./data/cancer.dt";
     NeuralNetworkT neuralNetwork_c;
     neuralNetwork_c.setup.classification = true;
     neuralNetwork_c.setup.lambda = 1.f;
@@ -211,8 +211,8 @@ int test_container() {
 
 
 int test_classification() {
-    const char *filename = "./neural_network_c/data/cancer.dt";
-    const char *classification_task_filename = "./neural_network_c/data/cancer_classification.dt";
+    const char *filename = "./data/cancer.dt";
+    const char *classification_task_filename = "./data/cancer_classification.dt";
     NeuralNetworkT neuralNetwork_c;
     neuralNetwork_c.setup.classification = true;
     neuralNetwork_c.setup.lambda = 1.f;
