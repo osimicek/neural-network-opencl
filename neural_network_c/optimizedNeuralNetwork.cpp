@@ -596,7 +596,7 @@ namespace optimized {
     /**
      * Performs prediction using neural network.
      */
-    void runNeuralNetworkPrediction(NeuralNetworkT *neuralNetwork, const char* taskFilename, bool verbose) {
+    void runNeuralNetworkPrediction(NeuralNetworkT *neuralNetwork, const char* taskFilename, bool verbose, float** classificationResult) {
         TaskData taskData;
 
         loadPredictionData(taskFilename, neuralNetwork, &taskData);
@@ -631,6 +631,10 @@ namespace optimized {
         std::chrono::high_resolution_clock::time_point t2 = std::chrono::high_resolution_clock::now();
         if (verbose) {
             std::cout << "  Duration: " << (std::chrono::duration_cast<std::chrono::microseconds>( t2 - t1 ).count() ) / 1000000. << "s" << std::endl;
+        }
+
+        if (classificationResult != NULL) {
+            *classificationResult = taskData.learningOutputs;
         }
         // storePrediction("out.txt", neuralNetwork, &taskData);
     }
