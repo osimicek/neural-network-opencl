@@ -1,7 +1,9 @@
 EXECUTABLE = main
+DEFAULT_DEVICE_ID = 0
+DEFAULT_PLATFORM_ID = 0
 
 CC= g++
-CPPFLAGS += -Wall -O3 -std=c++0x -lrt -lOpenCL -lglut -lGL -lGLU 
+CPPFLAGS += -w -O3 -std=c++0x -lrt -lOpenCL -lglut -lGL -lGLU -DDEVICE_ID=$(DEFAULT_DEVICE_ID) -DPLATFORM_ID=$(DEFAULT_PLATFORM_ID)
 
 neuralnetwork_obj =    OpenclHelper.o \
 						NeuralNetwork.o \
@@ -41,7 +43,16 @@ tests: .tests
 	$(CC) $(tests_obj) tests.o -o  tests $(CPPFLAGS)
 
 example1:
-	./main -g 5 -n 128 -e 1 -t ./data/gene.dt -c ./data/gene_classification.dt
+	./main -b -w 128 -n 128 -e 5 -t ./data/cancer.dt -c ./data/cancer_classification.dt -o out.txt
+
+example2:
+	./main -b -w 256 -n 256 -l 5 -e 5 -t ./data/cancer.dt -c ./data/cancer_classification.dt -o out.txt
+
+example3:
+	./main -g 5 -n 128 -e 2 -t ./data/gene.dt -c ./data/gene_classification.dt -o out.txt
+
+example4:
+	./main -g 5 -n 256 -m 1 -e 2 -t ./data/gene.dt -c ./data/gene_classification.dt -o out.txt
 
 run:
 	./main

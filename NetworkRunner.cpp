@@ -1,5 +1,8 @@
 #include <iostream>
 #include "NetworkRunner.h"
+
+#define USE_CHRONO
+
 #ifdef USE_CHRONO
 #include <chrono>
 #endif

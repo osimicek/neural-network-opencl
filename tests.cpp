@@ -4,8 +4,10 @@
 #include "NetworkContainer.h"
 #include "NetworkRunner.h"
 
-#define DEVICE_ID 0
-#define PLATFORM_ID 0
+#ifndef DEVICE_ID
+    #define DEVICE_ID 0
+    #define PLATFORM_ID 0
+#endif
 
 int compare_networks(NeuralNetworkT *neuralNetwork_c, NeuralNetwork *neuralNetwork_opencl) {
     for (int i = 0; i < neuralNetwork_c->criteria.maxEpochs; i++) {
@@ -50,7 +52,7 @@ int test_11() {
 
     networks_container.load_input_data(filename);
 
-    NetworkRunner networks_runner(DEVICE_ID, PLATFORM_ID, &networks_container);
+    NetworkRunner networks_runner(PLATFORM_ID, DEVICE_ID, &networks_container);
     networks_runner.write_task_data();
     networks_runner.run_networks();
 
@@ -89,7 +91,7 @@ int test_80_80() {
 
     networks_container.load_input_data(filename);
 
-    NetworkRunner networks_runner(DEVICE_ID, PLATFORM_ID, &networks_container);
+    NetworkRunner networks_runner(PLATFORM_ID, DEVICE_ID, &networks_container);
     networks_runner.write_task_data();
     networks_runner.run_networks();
 
@@ -129,7 +131,7 @@ int test_11_8() {
 
     networks_container.load_input_data(filename);
 
-    NetworkRunner networks_runner(DEVICE_ID, PLATFORM_ID, &networks_container);
+    NetworkRunner networks_runner(PLATFORM_ID, DEVICE_ID, &networks_container);
     networks_runner.write_task_data();
     networks_runner.run_networks();
 
@@ -202,7 +204,7 @@ int test_container() {
 
     networks_container.load_input_data(filename);
 
-    NetworkRunner networks_runner(DEVICE_ID, PLATFORM_ID, &networks_container);
+    NetworkRunner networks_runner(PLATFORM_ID, DEVICE_ID, &networks_container);
     networks_runner.write_task_data();
     networks_runner.run_networks();
 
@@ -245,7 +247,7 @@ int test_classification() {
 
     networks_container.load_input_data(filename);
 
-    NetworkRunner networks_runner(DEVICE_ID, PLATFORM_ID, &networks_container);
+    NetworkRunner networks_runner(PLATFORM_ID, DEVICE_ID, &networks_container);
     networks_runner.write_task_data();
     networks_runner.run_networks();
 

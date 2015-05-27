@@ -37,6 +37,12 @@ int main(int argc, char **argv) {
     char c;
     uint platform = 0;
     uint device = 0;
+#ifdef DEVICE_ID
+    device = DEVICE_ID;
+#endif
+#ifdef PLATFORM_ID
+    platform = PLATFORM_ID;
+#endif 
     uint max_layers = 4;
     uint min_layers = 0;
     uint epochs = 10;
