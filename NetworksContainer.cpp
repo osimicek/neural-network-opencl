@@ -19,6 +19,20 @@ NetworksContainer::NetworksContainer(int size) {
     this->transforms = NULL;
 }
 
+NetworksContainer::~NetworksContainer() {
+    if (this->neural_network_buffer != NULL) {
+        free(this->neural_network_buffer);
+    }
+
+    if (this->task_data_buffer != NULL) {
+        free(this->task_data_buffer);
+    }
+
+    if (this->transforms != NULL) {
+        free(this->transforms);
+    }
+}
+
 /**
  * Prepares networks to run on GPU. Allocates common buffer
  */
@@ -48,10 +62,10 @@ void NetworksContainer::init_networks() {
         buffer_size += (*neural_network)->get_required_buffer_size();
     }
 
+    this->neural_network_buffer_size = buffer_size * sizeof(float);
     if (this->neural_network_buffer != NULL) {
         free(this->neural_network_buffer);
     }
-    this->neural_network_buffer_size = buffer_size * sizeof(float);
     this->neural_network_buffer = _mm_malloc(this->neural_network_buffer_size, MEMORY_ALIGN);
     if (this->neural_network_buffer == NULL) {
         fprintf(stderr,"Out of memory\n");
@@ -113,6 +127,9 @@ void NetworksContainer::load_input_data(const char* filename) {
                             testInputSize +
                             testOutputSize
                             ) * sizeof(float);
+    if (this->task_data_buffer != NULL) {
+        free(this->task_data_buffer);
+    }
     this->task_data_buffer = _mm_malloc(this->task_data_buffer_size, MEMORY_ALIGN);
     if (this->task_data_buffer == NULL) {
         fprintf(stderr,"Out of memory\n");
@@ -181,6 +198,9 @@ void NetworksContainer::load_prediction_data(const char* filename) {
     int learningOutputSize = totalLines * outputVectorSize;
     this->task_data_buffer_size = (learningInputSize +
                                 learningOutputSize) * sizeof(float);
+    if (this->task_data_buffer != NULL) {
+        free(this->task_data_buffer);
+    }
     this->task_data_buffer = _mm_malloc(this->task_data_buffer_size, MEMORY_ALIGN);
     if (this->task_data_buffer == NULL) {
         fprintf(stderr,"Out of memory\n");

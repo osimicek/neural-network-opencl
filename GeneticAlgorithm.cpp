@@ -257,7 +257,13 @@ void GeneticAlgorithm::run(bool verbose) {
         printf("STARTING GENETIC ALGORITHM\n");
     }
     for (generation = 0; generation < this->max_generations; generation++) {
+        for(std::vector<NeuralNetwork *>::iterator neural_network = neural_networks->begin();
+            neural_network != neural_networks->end();
+            ++neural_network) {
+            delete *neural_network;
+        }
         neural_networks->clear();
+
         for(std::vector<uint>::iterator chromosome = this->chromosomes.begin();
             chromosome != this->chromosomes.end();
             ++chromosome) {
@@ -275,7 +281,7 @@ void GeneticAlgorithm::run(bool verbose) {
             neural_networks->push_back(nn);
         }
         // printf("Best configuration: \n  square error: %f\n  learning factor: %f\n  neurons: %d\n  hidden layers: %d\n",
-            // this->best_measure ,this->best_learning_factor,this->best_number_of_neurons, this->best_number_of_hidden_layers);
+        //     this->best_measure ,this->best_learning_factor,this->best_number_of_neurons, this->best_number_of_hidden_layers);
         // std::cout << generation<<std::flush << std::endl;
 
         this->networks_runner->set_max_neurons(this->max_neurons);

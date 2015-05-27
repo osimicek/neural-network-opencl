@@ -183,7 +183,6 @@ void NeuralNetwork::export_net(neural_network_transform_t *transform, void * neu
  * Initialization of weights with random values. Seed is fixed to achieve reproducibility.
  */
 void NeuralNetwork::init_weights(int length) {
-    srand(37);
     int *layers = this->setup.layers;
     int weightOffset = 0;
     for (int layer = 1; layer < this->setup.numOfLayers; layer++) {

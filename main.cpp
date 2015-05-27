@@ -1,5 +1,6 @@
 #include <iostream>
 #include <unistd.h>
+#include <time.h>
 #include "OpenclHelper.h"
 #include "NeuralNetwork.h"
 #include "NetworksContainer.h"
@@ -29,6 +30,7 @@ void print_help() {
 }
 
 int main(int argc, char **argv) {
+    srand (time(NULL));
     const char *taks_path = "./neural_network_c/data/cancer.dt";
     const char *classification_path = "./neural_network_c/data/cancer_predict.dt";
     const char *classification_output = "out.txt";
@@ -45,7 +47,7 @@ int main(int argc, char **argv) {
     uint neurons = 256;
     uint num_of_layers = 3;
 
-    while ((c = getopt (argc, argv, "p:d:im:x:e:bn:l:w:t:g:h")) != -1) {
+    while ((c = getopt (argc, argv, "p:d:im:x:e:bn:l:w:t:g:c:o:h")) != -1) {
         switch (c) {
             case 'h':
                 print_help();
@@ -126,6 +128,9 @@ int main(int argc, char **argv) {
         // CLASSIFICATION
         int best_epoch = (*neural_networks)[0]->get_best_square_error();
         int best_learning_factor = (*neural_networks)[0]->setup.learningFactor;
+        for (uint i = 0; i < num_of_networks; i++) {
+            delete (*neural_networks)[i];
+        }
         neural_networks->clear();
         networks_container.set_size(1);
         NeuralNetwork *nn = new NeuralNetwork;
@@ -139,7 +144,7 @@ int main(int argc, char **argv) {
         networks_runner.run_networks_prediction(num_of_networks, true);
         networks_container.store_prediction(classification_output);
 
-
+        delete nn;
     } else {
         NetworksRunner networks_runner(platform, device, &networks_container);
         networks_runner.write_task_data();
@@ -169,6 +174,8 @@ int main(int argc, char **argv) {
         networks_runner.write_task_data();
         networks_runner.run_networks_prediction(num_of_networks, true);
         networks_container.store_prediction(classification_output);
+
+        delete nn;
     }
 
 

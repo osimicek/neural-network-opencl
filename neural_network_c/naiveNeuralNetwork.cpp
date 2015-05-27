@@ -109,7 +109,7 @@ namespace naive {
      * Initialization of weights with random values. Seed is fixed to achieve reproducibility.
      */
     void initWeights(float *weights, int length) {
-        srand(37);
+        // srand(37);
         for (int i = 0; i < length; i++) {
             weights[i] = (rand() % 100 + 1) / 100.f;
         }

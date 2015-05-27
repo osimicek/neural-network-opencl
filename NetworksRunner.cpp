@@ -1,6 +1,8 @@
 #include <iostream>
-#include <chrono>
 #include "NetworksRunner.h"
+#ifdef USE_CHRONO
+#include <chrono>
+#endif
 
 /**
  * Prepares context and compiles kernel.
@@ -31,6 +33,7 @@ NetworksRunner::NetworksRunner(uint platformId, uint deviceId, NetworksContainer
     std::vector<std::string> codes;
     codes.push_back(knl_text);
     Program program = OpenclHelper::build_program(*this->ctx, codes, (std::string("-cl-mad-enable -cl-strict-aliasing -cl-denorms-are-zero -cl-single-precision-constant -DSHARED_MEMORY_SIZE=") + std::to_string(this->networks_container->get_shared_memory_per_network())).c_str());
+    free(knl_text);
     /**
      * Get kernel
      */
@@ -46,6 +49,7 @@ NetworksRunner::~NetworksRunner() {
     delete this->knl_predict;
     if (this->buf_taskdata != NULL) {
         delete this->buf_taskdata;
+        delete this->buf_task_data_transform;
     }
 }
 
@@ -204,7 +208,9 @@ void NetworksRunner::run_networks(bool verbose) {
         std::cout << " STARTING TRAINING:" << std::endl;
         // std::cout << " Workgroups " << rounded_neurons << "x" << global_y << "x" << global_z << std::endl;
     }
+#ifdef USE_CHRONO
     std::chrono::high_resolution_clock::time_point t1 = std::chrono::high_resolution_clock::now();
+#endif
     while(!this->has_all_finished(transforms, number_of_networks)) {
         status = this->queue->enqueueNDRangeKernel(*this->knl_learn,
                                                 NullRange,
@@ -226,9 +232,11 @@ void NetworksRunner::run_networks(bool verbose) {
         CHECK_CL_ERROR(status, "cl::Queue.enqueueReadBuffer()");
         // break;
     }
-    std::chrono::high_resolution_clock::time_point t2 = std::chrono::high_resolution_clock::now();
     if (verbose) {
+#ifdef USE_CHRONO
+        std::chrono::high_resolution_clock::time_point t2 = std::chrono::high_resolution_clock::now();
         std::cout << "  Duration: " << (std::chrono::duration_cast<std::chrono::microseconds>( t2 - t1 ).count()) / 1000000. << "s" << std::endl;
+#endif    
     }
     status = this->queue->enqueueReadBuffer(   buf_neuralnetwork,
                                                 CL_TRUE,
@@ -350,7 +358,9 @@ void NetworksRunner::run_networks_prediction(int number_of_networks, bool verbos
         std::cout << " STARTING PREDICTION:" << std::endl;
         // std::cout << " Workgroups " << rounded_neurons << "x" << global_y << "x" << global_z << std::endl;
     }
+#ifdef USE_CHRONO
     std::chrono::high_resolution_clock::time_point t1 = std::chrono::high_resolution_clock::now();
+#endif
     status = this->queue->enqueueNDRangeKernel(*this->knl_predict,
                                             NullRange,
                                             // NDRange(global_x, global_y),
@@ -370,9 +380,11 @@ void NetworksRunner::run_networks_prediction(int number_of_networks, bool verbos
                                         transforms);
     CHECK_CL_ERROR(status, "cl::Queue.enqueueReadBuffer()");
 
-    std::chrono::high_resolution_clock::time_point t2 = std::chrono::high_resolution_clock::now();
     if (verbose) {
+#ifdef USE_CHRONO        
+        std::chrono::high_resolution_clock::time_point t2 = std::chrono::high_resolution_clock::now();
         std::cout << "  Duration: " << (std::chrono::duration_cast<std::chrono::microseconds>( t2 - t1 ).count()) / 1000000. << "s" << std::endl;
+#endif
     }
     status = this->queue->enqueueReadBuffer(   buf_neuralnetwork,
                                                 CL_TRUE,
