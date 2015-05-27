@@ -20,7 +20,7 @@ experiment_obj := naiveNeuralNetwork.o \
 papi_obj := papi_cntr.o\
 			initPapi.o
 
-all: join_files $(experiment_obj) main.o
+all: $(experiment_obj) main.o
 	$(CXX) $(experiment_obj) main.o -o main $(CPPFLAGS) $(OPT)
 
 papi_overall: papi_overall_set_flags $(papi_obj) all
@@ -40,9 +40,6 @@ papi_neural_row_set_flags:
 
 clean:
 	rm -f *.o *.optrpt main
-
-join_files:
-	cat data/mnist_part_* > data/mnist.dt
 
 run:
 	PAPI_EVENTS='$(PAPI_EVENTS_F)' ./main $(arg)
