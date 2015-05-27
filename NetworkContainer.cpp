@@ -1,7 +1,7 @@
 #include <iostream>
 #include <fstream> // file read
 #include <mm_malloc.h>
-#include "NetworksContainer.h"
+#include "NetworkContainer.h"
 
 #define MEMORY_ALIGN 128
 /**
@@ -9,7 +9,7 @@
  * It allows common initialization of all networks and
  * creation of common buffer for OpenCL usage.
  */
-NetworksContainer::NetworksContainer(int size) {
+NetworkContainer::NetworkContainer(int size) {
     this->set_size(size);
     // this->neural_networks[0]->set_hidden_layers(1, 20);
     // this->neural_networks_storage[1]->set_hidden_layers(1, 20);
@@ -19,7 +19,7 @@ NetworksContainer::NetworksContainer(int size) {
     this->transforms = NULL;
 }
 
-NetworksContainer::~NetworksContainer() {
+NetworkContainer::~NetworkContainer() {
     if (this->neural_network_buffer != NULL) {
         free(this->neural_network_buffer);
     }
@@ -36,7 +36,7 @@ NetworksContainer::~NetworksContainer() {
 /**
  * Prepares networks to run on GPU. Allocates common buffer
  */
-void NetworksContainer::init_networks() {
+void NetworkContainer::init_networks() {
     this->neural_networks.clear();
 
     // choose only networks that fit to shared memory
@@ -88,7 +88,7 @@ void NetworksContainer::init_networks() {
 /**
  * Update all networks witch transforms data.
  */
-void NetworksContainer::update_networks() {
+void NetworkContainer::update_networks() {
     for (std::vector<NeuralNetwork *>::iterator neural_network = this->neural_networks.begin();
         neural_network != this->neural_networks.end();
         neural_network++) {
@@ -100,7 +100,7 @@ void NetworksContainer::update_networks() {
 /**
  * Reads and stores input vectors for learning and testing neural network.
  */
-void NetworksContainer::load_input_data(const char* filename) {
+void NetworkContainer::load_input_data(const char* filename) {
     std::ifstream input(filename);
     
     uint inputVectorSize, outputVectorSize, totalLearningLines, totalTestLines;
@@ -183,7 +183,7 @@ void NetworksContainer::load_input_data(const char* filename) {
      /**
      * Reads and stores input vectors for neural network prediction.
      */
-void NetworksContainer::load_prediction_data(const char* filename) {
+void NetworkContainer::load_prediction_data(const char* filename) {
     std::ifstream input(filename);
     
     uint inputVectorSize, outputVectorSize, totalLines, totalTestLines;
@@ -231,7 +231,7 @@ void NetworksContainer::load_prediction_data(const char* filename) {
 /**
  * Stores output vectors for neural network prediction.
  */
-void NetworksContainer::store_prediction(const char* filename) {
+void NetworkContainer::store_prediction(const char* filename) {
     std::ofstream out(filename);
 
     for (unsigned int row = 0; row < this->taskData.totalLearningLines; row++) {
@@ -250,35 +250,35 @@ void NetworksContainer::store_prediction(const char* filename) {
 /**
  * Returns common neural network buffer.
  */
-void *NetworksContainer::get_neural_network_buffer() {
+void *NetworkContainer::get_neural_network_buffer() {
     return this->neural_network_buffer;
 }
 
 /**
  * Returns size of common neural network buffer.
  */
-int NetworksContainer::get_neural_network_buffer_size() {
+int NetworkContainer::get_neural_network_buffer_size() {
     return this->neural_network_buffer_size;
 }
 
 /**
  * Returns task data buffer.
  */
-void *NetworksContainer::get_task_data_buffer() {
+void *NetworkContainer::get_task_data_buffer() {
     return this->task_data_buffer;
 }
 
 /**
  * Returns size of task data buffer.
  */
-int NetworksContainer::get_task_data_buffer_size() {
+int NetworkContainer::get_task_data_buffer_size() {
     return this->task_data_buffer_size;
 }
 
 /**
  * Sets size of container;
  */
-int NetworksContainer::set_size(int size) {
+int NetworkContainer::set_size(int size) {
     this->container_size = size;
     if (this->transforms == NULL) {
         free(this->transforms);
@@ -289,47 +289,47 @@ int NetworksContainer::set_size(int size) {
 /**
  * Returns total size of container;
  */
-int NetworksContainer::size() {
+int NetworkContainer::size() {
     return this->container_size;
 }
 
 /**
  * Returns number of neural networks that can be run.
  */
-int NetworksContainer::get_number_of_neural_networks() {
+int NetworkContainer::get_number_of_neural_networks() {
     return this->neural_networks.size();
 }
 
 /**
  * Returns transform structure for task data.
  */
-task_data_transform_t *NetworksContainer::get_task_data_transform() {
+task_data_transform_t *NetworkContainer::get_task_data_transform() {
     return &this->task_data_transform;
 }
 
 /**
  * Returns array of transform structures for neural networks.
  */
-neural_network_transform_t *NetworksContainer::get_transforms() {
+neural_network_transform_t *NetworkContainer::get_transforms() {
     return this->transforms;
 }
 
 /**
  * Returns size of array of transform structures for neural networks.
  */
-int NetworksContainer::get_transforms_size() {
+int NetworkContainer::get_transforms_size() {
     return this->neural_network_transforms_size;
 }
 
 /**
  * Returns required size of shared memory.
  */
-int NetworksContainer::get_shared_memory_per_network() {
+int NetworkContainer::get_shared_memory_per_network() {
     return this->shared_memory_per_network;
 }
 /**
  * Returns required size of shared memory.
  */
-std::vector<NeuralNetwork *> * NetworksContainer::get_neural_networks_storage() {
+std::vector<NeuralNetwork *> * NetworkContainer::get_neural_networks_storage() {
     return &this->neural_networks_storage;
 }

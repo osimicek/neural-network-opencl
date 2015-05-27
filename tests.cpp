@@ -1,8 +1,8 @@
 #include <stdio.h>
 #include "neural_network_c/optimizedNeuralNetwork.h"
 #include "NeuralNetwork.h"
-#include "NetworksContainer.h"
-#include "NetworksRunner.h"
+#include "NetworkContainer.h"
+#include "NetworkRunner.h"
 
 #define DEVICE_ID 0
 #define PLATFORM_ID 0
@@ -42,7 +42,7 @@ int test_11() {
     neuralNetwork_opencl.set_learning_factor(neuralNetwork_c.setup.learningFactor);
     neuralNetwork_opencl.set_max_epochs(neuralNetwork_c.criteria.maxEpochs);
 
-    NetworksContainer networks_container;
+    NetworkContainer networks_container;
     std::vector<NeuralNetwork *> * neural_networks = networks_container.get_neural_networks_storage();
     networks_container.set_size(1);
     neural_networks->clear();
@@ -50,7 +50,7 @@ int test_11() {
 
     networks_container.load_input_data(filename);
 
-    NetworksRunner networks_runner(DEVICE_ID, PLATFORM_ID, &networks_container);
+    NetworkRunner networks_runner(DEVICE_ID, PLATFORM_ID, &networks_container);
     networks_runner.write_task_data();
     networks_runner.run_networks();
 
@@ -81,7 +81,7 @@ int test_80_80() {
     neuralNetwork_opencl.set_learning_factor(neuralNetwork_c.setup.learningFactor);
     neuralNetwork_opencl.set_max_epochs(neuralNetwork_c.criteria.maxEpochs);
 
-    NetworksContainer networks_container;
+    NetworkContainer networks_container;
     std::vector<NeuralNetwork *> * neural_networks = networks_container.get_neural_networks_storage();
     networks_container.set_size(1);
     neural_networks->clear();
@@ -89,7 +89,7 @@ int test_80_80() {
 
     networks_container.load_input_data(filename);
 
-    NetworksRunner networks_runner(DEVICE_ID, PLATFORM_ID, &networks_container);
+    NetworkRunner networks_runner(DEVICE_ID, PLATFORM_ID, &networks_container);
     networks_runner.write_task_data();
     networks_runner.run_networks();
 
@@ -121,7 +121,7 @@ int test_11_8() {
     neuralNetwork_opencl.set_learning_factor(neuralNetwork_c.setup.learningFactor);
     neuralNetwork_opencl.set_max_epochs(neuralNetwork_c.criteria.maxEpochs);
 
-    NetworksContainer networks_container;
+    NetworkContainer networks_container;
     std::vector<NeuralNetwork *> * neural_networks = networks_container.get_neural_networks_storage();
     networks_container.set_size(1);
     neural_networks->clear();
@@ -129,7 +129,7 @@ int test_11_8() {
 
     networks_container.load_input_data(filename);
 
-    NetworksRunner networks_runner(DEVICE_ID, PLATFORM_ID, &networks_container);
+    NetworkRunner networks_runner(DEVICE_ID, PLATFORM_ID, &networks_container);
     networks_runner.write_task_data();
     networks_runner.run_networks();
 
@@ -168,7 +168,7 @@ int test_container() {
     srand(37);
     optimized::runOptimizedNeuralNetwork(&neuralNetwork_c_2, filename);
 
-    NetworksContainer networks_container;
+    NetworkContainer networks_container;
     std::vector<NeuralNetwork *> * neural_networks = networks_container.get_neural_networks_storage();
     networks_container.set_size(4);
     neural_networks->clear();
@@ -202,7 +202,7 @@ int test_container() {
 
     networks_container.load_input_data(filename);
 
-    NetworksRunner networks_runner(DEVICE_ID, PLATFORM_ID, &networks_container);
+    NetworkRunner networks_runner(DEVICE_ID, PLATFORM_ID, &networks_container);
     networks_runner.write_task_data();
     networks_runner.run_networks();
 
@@ -237,7 +237,7 @@ int test_classification() {
     neuralNetwork_opencl.set_learning_factor(neuralNetwork_c.setup.learningFactor);
     neuralNetwork_opencl.set_max_epochs(neuralNetwork_c.criteria.maxEpochs);
 
-    NetworksContainer networks_container;
+    NetworkContainer networks_container;
     std::vector<NeuralNetwork *> * neural_networks = networks_container.get_neural_networks_storage();
     networks_container.set_size(1);
     neural_networks->clear();
@@ -245,7 +245,7 @@ int test_classification() {
 
     networks_container.load_input_data(filename);
 
-    NetworksRunner networks_runner(DEVICE_ID, PLATFORM_ID, &networks_container);
+    NetworkRunner networks_runner(DEVICE_ID, PLATFORM_ID, &networks_container);
     networks_runner.write_task_data();
     networks_runner.run_networks();
 

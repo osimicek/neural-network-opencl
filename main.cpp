@@ -3,8 +3,8 @@
 #include <time.h>
 #include "OpenclHelper.h"
 #include "NeuralNetwork.h"
-#include "NetworksContainer.h"
-#include "NetworksRunner.h"
+#include "NetworkContainer.h"
+#include "NetworkRunner.h"
 #include "GeneticAlgorithm.h"
 
 void print_help() {
@@ -103,7 +103,7 @@ int main(int argc, char **argv) {
                 abort ();
         }
     }
-    NetworksContainer networks_container;
+    NetworkContainer networks_container;
     networks_container.load_input_data(taks_path);
     
     if (bench) {
@@ -111,7 +111,7 @@ int main(int argc, char **argv) {
                                 2 * (num_of_layers * neurons + networks_container.inputVectorSize + networks_container.outputVectorSize) + 
                                 networks_container.outputVectorSize + epochs; // layers + errors + values + output + epochs
         networks_container.shared_memory_per_network = required_shared_memory;
-        NetworksRunner networks_runner(platform, device, &networks_container);
+        NetworkRunner networks_runner(platform, device, &networks_container);
         networks_runner.set_max_neurons(neurons);
         networks_runner.write_task_data();
         printf("Bench test: \n network: %dx%d,  num:%d,  epochs: %d\n", num_of_layers, neurons, num_of_networks, epochs);
@@ -146,7 +146,7 @@ int main(int argc, char **argv) {
 
         delete nn;
     } else {
-        NetworksRunner networks_runner(platform, device, &networks_container);
+        NetworkRunner networks_runner(platform, device, &networks_container);
         networks_runner.write_task_data();
         GeneticAlgorithm ga(&networks_container, &networks_runner);
         ga.set_max_generations(generations);

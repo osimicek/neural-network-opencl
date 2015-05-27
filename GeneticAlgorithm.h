@@ -1,8 +1,8 @@
 #ifndef GENETIC_ALGORITHM_H
 #define GENETIC_ALGORITHM_H
 #include <vector>
-#include "NetworksRunner.h"
-#include "NetworksContainer.h"
+#include "NetworkRunner.h"
+#include "NetworkContainer.h"
 
 class GeneticAlgorithm {
     private:
@@ -13,8 +13,8 @@ class GeneticAlgorithm {
         int best_number_of_hidden_layers;
         int best_number_of_epochs;
         float best_learning_factor;
-        NetworksContainer *networks_container;
-        NetworksRunner *networks_runner;
+        NetworkContainer *networks_container;
+        NetworkRunner *networks_runner;
         std::vector<uint> chromosomes;
         std::vector<float> measures;
         std::vector<float> fitnesses;
@@ -28,7 +28,7 @@ class GeneticAlgorithm {
         float reproduction_probability;
         float mutation_probability;
 
-        GeneticAlgorithm(NetworksContainer *container, NetworksRunner *runner);
+        GeneticAlgorithm(NetworkContainer *container, NetworkRunner *runner);
         void init();
         float get_learning_factor(uint chromosome);
         int get_number_of_neurons(uint chromosome);

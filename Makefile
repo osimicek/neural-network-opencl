@@ -5,8 +5,8 @@ CPPFLAGS += -Wall -O3 -std=c++0x -lrt -lOpenCL -lglut -lGL -lGLU
 
 neuralnetwork_obj =    OpenclHelper.o \
 						NeuralNetwork.o \
-						NetworksContainer.o \
-						NetworksRunner.o \
+						NetworkContainer.o \
+						NetworkRunner.o \
 						GeneticAlgorithm.o \
 
 tests_obj =      	$(neuralnetwork_obj)\

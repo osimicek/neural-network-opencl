@@ -15,8 +15,8 @@
  *  |      16b (learning factor)        10b (neurons)    6b (layers) |
  *  |--------------------------------|------------------|------------|
  */
-GeneticAlgorithm::GeneticAlgorithm( NetworksContainer *container,
-                                    NetworksRunner *runner):networks_container(container),networks_runner(runner) {
+GeneticAlgorithm::GeneticAlgorithm( NetworkContainer *container,
+                                    NetworkRunner *runner):networks_container(container),networks_runner(runner) {
     this->generation = 0;
     this->set_population_size(256);
 

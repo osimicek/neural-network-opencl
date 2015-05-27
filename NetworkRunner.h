@@ -1,12 +1,12 @@
 #ifndef NETWORKS_RUNNER_H
 #define NETWORKS_RUNNER_H
 #include "OpenclHelper.h"
-#include "NetworksContainer.h"
+#include "NetworkContainer.h"
 #include "NeuralNetwork.h"
 
-class NetworksRunner {
+class NetworkRunner {
     private:
-        NetworksContainer *networks_container;
+        NetworkContainer *networks_container;
         Device *device;
         CommandQueue *queue;
         Context *ctx;
@@ -19,8 +19,8 @@ class NetworksRunner {
         int task_data_buffer_size;
         bool has_all_finished(neural_network_transform_t * transforms, int number_of_networks);
     public:
-        NetworksRunner(uint platformId, uint deviceId, NetworksContainer *networks_container);
-        ~NetworksRunner();
+        NetworkRunner(uint platformId, uint deviceId, NetworkContainer *networks_container);
+        ~NetworkRunner();
         void set_max_neurons(int value);
         void write_task_data();
         void run_networks(bool verbose = false);

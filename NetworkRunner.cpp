@@ -1,5 +1,5 @@
 #include <iostream>
-#include "NetworksRunner.h"
+#include "NetworkRunner.h"
 #ifdef USE_CHRONO
 #include <chrono>
 #endif
@@ -7,7 +7,7 @@
 /**
  * Prepares context and compiles kernel.
  */
-NetworksRunner::NetworksRunner(uint platformId, uint deviceId, NetworksContainer *container):networks_container(container) {
+NetworkRunner::NetworkRunner(uint platformId, uint deviceId, NetworkContainer *container):networks_container(container) {
     cl_int status;
     this->buf_taskdata = NULL;
     Device device = OpenclHelper::get_device(platformId, deviceId);
@@ -42,7 +42,7 @@ NetworksRunner::NetworksRunner(uint platformId, uint deviceId, NetworksContainer
     CHECK_CL_ERROR(status, "cl::Kernel");
 }
 
-NetworksRunner::~NetworksRunner() {
+NetworkRunner::~NetworkRunner() {
     delete this->ctx;
     delete this->queue;
     delete this->knl_learn;
@@ -53,14 +53,14 @@ NetworksRunner::~NetworksRunner() {
     }
 }
 
-void NetworksRunner::set_max_neurons(int value) {
+void NetworkRunner::set_max_neurons(int value) {
     this->max_neurons = value;
 }
 
 /**
  * Sends taskData to device.
  */
-void NetworksRunner::write_task_data() {
+void NetworkRunner::write_task_data() {
     cl_int status;
     if (this->buf_taskdata != NULL) {
         delete this->buf_taskdata;
@@ -110,7 +110,7 @@ void NetworksRunner::write_task_data() {
 /**
  * Returns if all networks reached maxEpoch criteria.
  */
-bool NetworksRunner::has_all_finished(neural_network_transform_t * transforms, int number_of_networks) {
+bool NetworkRunner::has_all_finished(neural_network_transform_t * transforms, int number_of_networks) {
     for (int i = 0; i < number_of_networks; i++) {
         if (transforms[i].state_epoch < transforms[i].criteria_maxEpochs) {
             // std::cout << transforms[i].state_epoch <<" "<<transforms[i].criteria_maxEpochs << std::endl << std::flush;
@@ -123,7 +123,7 @@ bool NetworksRunner::has_all_finished(neural_network_transform_t * transforms, i
 /**
  * Runs neural networks from container on GPU device.
  */
-void NetworksRunner::run_networks(bool verbose) {
+void NetworkRunner::run_networks(bool verbose) {
     cl_int status;
     this->networks_container->init_networks();
 
@@ -278,7 +278,7 @@ void NetworksRunner::run_networks(bool verbose) {
 /**
  * Runs neural networks from container on GPU device.
  */
-void NetworksRunner::run_networks_prediction(int number_of_networks, bool verbose) {
+void NetworkRunner::run_networks_prediction(int number_of_networks, bool verbose) {
     cl_int status;
     // this->networks_container->init_networks();
     void *neural_network_buffer = this->networks_container->get_neural_network_buffer();

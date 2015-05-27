@@ -3,7 +3,7 @@
 #include <vector>
 #include "NeuralNetwork.h"
 
-class NetworksContainer {
+class NetworkContainer {
     private:
         std::vector<NeuralNetwork *> neural_networks_storage;
 
@@ -23,8 +23,8 @@ class NetworksContainer {
         int outputVectorSize;
         std::vector<NeuralNetwork *> neural_networks;
         taskData_t taskData;
-        NetworksContainer(int size = 256);
-        ~NetworksContainer();
+        NetworkContainer(int size = 256);
+        ~NetworkContainer();
         void init_networks();
         void load_input_data(const char* filename);
         void load_prediction_data(const char* filename);
