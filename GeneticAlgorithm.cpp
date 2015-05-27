@@ -306,7 +306,7 @@ void GeneticAlgorithm::run(bool verbose) {
             index++;
         }
         if (verbose) {
-            printf("%d%%\n", (generation * 100) / this->max_generations);
+            printf("%d%%\n", ((generation + 1) * 100) / this->max_generations);
         }
 
         this->generate_fitnesses();

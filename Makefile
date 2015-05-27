@@ -46,13 +46,13 @@ example1:
 	./main -b -w 128 -n 128 -e 5 -t ./data/cancer.dt -c ./data/cancer_classification.dt -o out.txt
 
 example2:
-	./main -b -w 256 -n 256 -l 5 -e 5 -t ./data/cancer.dt -c ./data/cancer_classification.dt -o out.txt
+	./main -b -w 256 -n 256 -l 5 -e 3 -t ./data/cancer.dt -c ./data/cancer_classification.dt -o out.txt
 
 example3:
 	./main -g 5 -n 128 -e 2 -t ./data/gene.dt -c ./data/gene_classification.dt -o out.txt
 
 example4:
-	./main -g 5 -n 256 -m 1 -e 2 -t ./data/gene.dt -c ./data/gene_classification.dt -o out.txt
+	./main -g 5 -n 128 -x 1 -e 2 -t ./data/gene.dt -c ./data/gene_classification.dt -o out.txt
 
 run:
 	./main
