@@ -27,8 +27,8 @@ class NetworkContainer {
         ~NetworkContainer();
         void init_networks();
         void load_input_data(const char* filename);
-        void load_prediction_data(const char* filename);
-        void store_prediction(const char* filename);
+        void load_classification_data(const char* filename);
+        void store_classification(const char* filename);
         void update_networks();
         void *get_neural_network_buffer();
         void *get_task_data_buffer();

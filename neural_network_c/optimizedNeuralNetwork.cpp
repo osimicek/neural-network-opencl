@@ -396,8 +396,8 @@ namespace optimized {
         (*papi_routines)["o_network_testing_error_computation"].Start();
         #endif
         int numOfOutputNeurons = layers[numOfLayers - 1];
-        float predictionCandidateValue = -1.f;
-        int predictionCandidateIndex = 0;
+        float classificationCandidateValue = -1.f;
+        int classificationCandidateIndex = 0;
         for (int neuron = 0; neuron < numOfOutputNeurons; neuron++) {
             #if USE_PAPI_NEURAL_ROW_TEST
             if (neuron == 0) {
@@ -411,9 +411,9 @@ namespace optimized {
                 // conversion to bool
                 int classValue = round(value);
 
-                if (classValue == 1 && predictionCandidateValue < value) {
-                    predictionCandidateValue = value;
-                    predictionCandidateIndex = neuron;
+                if (classValue == 1 && classificationCandidateValue < value) {
+                    classificationCandidateValue = value;
+                    classificationCandidateIndex = neuron;
                 }
             } else {
                 diff = expectedOutput[neuron] - value;
@@ -427,7 +427,7 @@ namespace optimized {
             
         }
         if (neuralNetwork->setup.classification) {
-            if (expectedOutput[predictionCandidateIndex] != 1.f || predictionCandidateValue == -1.f) {
+            if (expectedOutput[classificationCandidateIndex] != 1.f || classificationCandidateValue == -1.f) {
                 neuralNetwork->currentSquareErrorCounter += 1;
             }
         }
@@ -438,11 +438,11 @@ namespace optimized {
 
 
     /**
-     * Performs a prediction cycle of neural network. Input vector is transformed to output vector.
+     * Performs a classification cycle of neural network. Input vector is transformed to output vector.
      * Output vector si stored in suplided data array.
      */
-    void neuralPredictionCycle(NeuralNetworkT *neuralNetwork, 
-                        float *predictionOutput) {
+    void neuralClassificationCycle(NeuralNetworkT *neuralNetwork, 
+                        float *classificationOutput) {
         
         int numOfLayers = neuralNetwork->setup.numOfLayers;
         int * __restrict layers = neuralNetwork->setup.layers;
@@ -474,22 +474,22 @@ namespace optimized {
 
         // error computation backwards
         int numOfOutputNeurons = layers[numOfLayers - 1];
-        float predictionCandidateValue = -1.f;
-        int predictionCandidateIndex = 0;
+        float classificationCandidateValue = -1.f;
+        int classificationCandidateIndex = 0;
         for (int neuron = 0; neuron < numOfOutputNeurons; neuron++) {
             float value = values[neuron + valueOffset];
             float diff;
                 // conversion to bool
                 int classValue = round(value);
-                predictionOutput[neuron] = 0.f;
+                classificationOutput[neuron] = 0.f;
 
-                if (classValue == 1 && predictionCandidateValue < value) {
-                    predictionCandidateValue = value;
-                    predictionCandidateIndex = neuron;
+                if (classValue == 1 && classificationCandidateValue < value) {
+                    classificationCandidateValue = value;
+                    classificationCandidateIndex = neuron;
                 }
             
         }
-        predictionOutput[predictionCandidateIndex] = 1.f;
+        classificationOutput[classificationCandidateIndex] = 1.f;
     }
 
     /**
@@ -594,13 +594,13 @@ namespace optimized {
 
 
     /**
-     * Performs prediction using neural network.
+     * Performs classification using neural network.
      */
-    void runNeuralNetworkPrediction(NeuralNetworkT *neuralNetwork, const char* taskFilename, bool verbose, float** classificationResult) {
+    void runNeuralNetworkClassification(NeuralNetworkT *neuralNetwork, const char* taskFilename, bool verbose, float** classificationResult) {
         TaskData taskData;
 
-        loadPredictionData(taskFilename, neuralNetwork, &taskData);
-        float *predictionOutput;
+        loadClassificationData(taskFilename, neuralNetwork, &taskData);
+        float *classificationOutput;
         
         float generalizationLoss, progress;
         wait();
@@ -610,10 +610,10 @@ namespace optimized {
         std::chrono::high_resolution_clock::time_point t1 = std::chrono::high_resolution_clock::now();
         neuralNetwork->state.learningLine = 0;
         /**
-         * Prediction
+         * Classification
          */
-        while (getPredictionVector(neuralNetwork, &taskData, &predictionOutput)) {
-            neuralPredictionCycle(neuralNetwork, predictionOutput);
+        while (getClassificationVector(neuralNetwork, &taskData, &classificationOutput)) {
+            neuralClassificationCycle(neuralNetwork, classificationOutput);
             // if (counter > 10) {
             //     #if USE_PAPI_LEARN_AND_TEST
             //     (*papi_routines)["o_network_learning"].Stop();
@@ -636,6 +636,6 @@ namespace optimized {
         if (classificationResult != NULL) {
             *classificationResult = taskData.learningOutputs;
         }
-        // storePrediction("out.txt", neuralNetwork, &taskData);
+        // storeClassification("out.txt", neuralNetwork, &taskData);
     }
 }

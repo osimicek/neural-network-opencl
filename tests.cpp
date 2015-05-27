@@ -212,7 +212,7 @@ int test_container() {
 
 int test_classification() {
     const char *filename = "./neural_network_c/data/cancer.dt";
-    const char *prediction_task_filename = "./neural_network_c/data/cancer.dt";
+    const char *classification_task_filename = "./neural_network_c/data/cancer_classification.dt";
     NeuralNetworkT neuralNetwork_c;
     neuralNetwork_c.setup.classification = true;
     neuralNetwork_c.setup.lambda = 1.f;
@@ -229,7 +229,7 @@ int test_classification() {
     srand(37);
     optimized::runOptimizedNeuralNetwork(&neuralNetwork_c, filename);
     float *class_result;
-    optimized::runNeuralNetworkPrediction(&neuralNetwork_c, prediction_task_filename, false, &class_result);
+    optimized::runNeuralNetworkClassification(&neuralNetwork_c, classification_task_filename, false, &class_result);
 
     srand(37);
     NeuralNetwork neuralNetwork_opencl;
@@ -249,9 +249,9 @@ int test_classification() {
     networks_runner.write_task_data();
     networks_runner.run_networks();
 
-    networks_container.load_prediction_data(prediction_task_filename);
+    networks_container.load_classification_data(classification_task_filename);
     networks_runner.write_task_data();
-    networks_runner.run_networks_prediction(64);
+    networks_runner.run_networks_classification(64);
 
     for (uint row = 0; row < networks_container.taskData.totalLearningLines; row++) {
         int numOfOutputNeurons = networks_container.outputVectorSize;

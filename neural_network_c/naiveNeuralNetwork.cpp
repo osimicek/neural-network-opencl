@@ -97,8 +97,8 @@ namespace naive {
     void printClassificationAccurancy(int *accurancy, int numOfNeurons) {
         for (int neuron = 0; neuron < numOfNeurons; neuron++) {
             printf("N. %d\t| true T | true F | precision\n", neuron);
-            printf("pred. T\t| %d\t | %d\t  | %5.1f%%\n", accurancy[neuron * 4], accurancy[neuron * 4 + 1], accurancy[neuron * 4] / ((accurancy[neuron * 4] + accurancy[neuron * 4 + 1]) / 100.0));
-            printf("pred. F\t| %d\t | %d\t  | %5.1f%%\n", accurancy[neuron * 4 + 2], accurancy[neuron * 4 + 3], accurancy[neuron * 4 + 3] / ((accurancy[neuron * 4 + 2] + accurancy[neuron * 4 + 3]) / 100.0));
+            printf("classification. T\t| %d\t | %d\t  | %5.1f%%\n", accurancy[neuron * 4], accurancy[neuron * 4 + 1], accurancy[neuron * 4] / ((accurancy[neuron * 4] + accurancy[neuron * 4 + 1]) / 100.0));
+            printf("classification. F\t| %d\t | %d\t  | %5.1f%%\n", accurancy[neuron * 4 + 2], accurancy[neuron * 4 + 3], accurancy[neuron * 4 + 3] / ((accurancy[neuron * 4 + 2] + accurancy[neuron * 4 + 3]) / 100.0));
             printf("recall\t| %5.1f%% | %5.1f%% \n\n", accurancy[neuron * 4] / ((accurancy[neuron * 4] + accurancy[neuron * 4 + 2]) / 100.0),
                                           accurancy[neuron * 4 + 3] / ((accurancy[neuron * 4 + 1] + accurancy[neuron * 4 + 3]) / 100.0));
         }
@@ -189,9 +189,9 @@ namespace naive {
     }
 
     /**
-     * Returns a prediction vector for neural network.
+     * Returns a classification vector for neural network.
      */
-    bool getPredictionVector(NeuralNetworkT *neuralNetwork, TaskData *taskData, float **predictionOutput) {
+    bool getClassificationVector(NeuralNetworkT *neuralNetwork, TaskData *taskData, float **classificationOutput) {
 
         if (neuralNetwork->state.learningLine >= taskData->totalLearningLines) {
             return false;
@@ -200,7 +200,7 @@ namespace naive {
             neuralNetwork->state.values[input] = taskData->learningInputs[input + neuralNetwork->state.learningLine * neuralNetwork->setup.layers[0]];
         }
 
-        *predictionOutput = &(taskData->learningOutputs[neuralNetwork->state.learningLine * neuralNetwork->setup.layers[neuralNetwork->setup.numOfLayers - 1]]);
+        *classificationOutput = &(taskData->learningOutputs[neuralNetwork->state.learningLine * neuralNetwork->setup.layers[neuralNetwork->setup.numOfLayers - 1]]);
         neuralNetwork->state.learningLine ++;
         return true;
     }
@@ -210,6 +210,10 @@ namespace naive {
      */
     void loadInputData(const char* filename, NeuralNetworkT *neuralNetwork, TaskData *taskData) {
         std::ifstream input(filename);
+        if (input.fail()) {
+            fprintf(stderr,"Could not open file %s \n", filename);
+            exit(-1);
+        }
         
         int inputVectorSize, outputVectorSize, totalLearningLines, totalTestLines;
         input >> inputVectorSize;
@@ -261,10 +265,14 @@ namespace naive {
     }
 
      /**
-     * Reads and stores input vectors for neural network prediction.
+     * Reads and stores input vectors for neural network classification.
      */
-    void loadPredictionData(const char* filename, NeuralNetworkT *neuralNetwork, TaskData *taskData) {
+    void loadClassificationData(const char* filename, NeuralNetworkT *neuralNetwork, TaskData *taskData) {
         std::ifstream input(filename);
+        if (input.fail()) {
+            fprintf(stderr,"Could not open file %s \n", filename);
+            exit(-1);
+        }
         
         int inputVectorSize, outputVectorSize, totalLines, totalTestLines;
         input >> inputVectorSize;
@@ -291,9 +299,9 @@ namespace naive {
 
 
     /**
-     * Stores output vectors for neural network prediction.
+     * Stores output vectors for neural network classification.
      */
-    void storePrediction(const char* filename, NeuralNetworkT *neuralNetwork, TaskData *taskData) {
+    void storeClassification(const char* filename, NeuralNetworkT *neuralNetwork, TaskData *taskData) {
         std::ofstream out(filename);
 
         for (unsigned int row = 0; row < taskData->totalLearningLines; row++) {

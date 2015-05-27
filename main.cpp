@@ -32,7 +32,7 @@ void print_help() {
 int main(int argc, char **argv) {
     srand (time(NULL));
     const char *taks_path = "./neural_network_c/data/cancer.dt";
-    const char *classification_path = "./neural_network_c/data/cancer_predict.dt";
+    const char *classification_path = "./neural_network_c/data/cancer_classification.dt";
     const char *classification_output = "out.txt";
     char c;
     uint platform = 0;
@@ -139,10 +139,10 @@ int main(int argc, char **argv) {
         nn->set_learning_factor(best_learning_factor);
         neural_networks->push_back(nn);
         networks_runner.run_networks();
-        networks_container.load_prediction_data(classification_path);
+        networks_container.load_classification_data(classification_path);
         networks_runner.write_task_data();
-        networks_runner.run_networks_prediction(num_of_networks, true);
-        networks_container.store_prediction(classification_output);
+        networks_runner.run_networks_classification(num_of_networks, true);
+        networks_container.store_classification(classification_output);
 
         delete nn;
     } else {
@@ -170,10 +170,10 @@ int main(int argc, char **argv) {
         nn->set_learning_factor(ga.best_learning_factor);
         neural_networks->push_back(nn);
         networks_runner.run_networks();
-        networks_container.load_prediction_data(classification_path);
+        networks_container.load_classification_data(classification_path);
         networks_runner.write_task_data();
-        networks_runner.run_networks_prediction(num_of_networks, true);
-        networks_container.store_prediction(classification_output);
+        networks_runner.run_networks_classification(num_of_networks, true);
+        networks_container.store_classification(classification_output);
 
         delete nn;
     }

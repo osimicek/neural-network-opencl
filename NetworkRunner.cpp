@@ -38,7 +38,7 @@ NetworkRunner::NetworkRunner(uint platformId, uint deviceId, NetworkContainer *c
      * Get kernel
      */
     this->knl_learn = new Kernel(program, "run_neural_network", &status);
-    this->knl_predict = new Kernel(program, "run_neural_network_predict", &status);
+    this->knl_classification = new Kernel(program, "run_neural_network_classification", &status);
     CHECK_CL_ERROR(status, "cl::Kernel");
 }
 
@@ -46,7 +46,7 @@ NetworkRunner::~NetworkRunner() {
     delete this->ctx;
     delete this->queue;
     delete this->knl_learn;
-    delete this->knl_predict;
+    delete this->knl_classification;
     if (this->buf_taskdata != NULL) {
         delete this->buf_taskdata;
         delete this->buf_task_data_transform;
@@ -278,7 +278,7 @@ void NetworkRunner::run_networks(bool verbose) {
 /**
  * Runs neural networks from container on GPU device.
  */
-void NetworkRunner::run_networks_prediction(int number_of_networks, bool verbose) {
+void NetworkRunner::run_networks_classification(int number_of_networks, bool verbose) {
     cl_int status;
     // this->networks_container->init_networks();
     void *neural_network_buffer = this->networks_container->get_neural_network_buffer();
@@ -332,11 +332,11 @@ void NetworkRunner::run_networks_prediction(int number_of_networks, bool verbose
     /**
      * Run kernel
      */
-    this->knl_predict->setArg(0, buf_neural_network_transform);
-    this->knl_predict->setArg(1, buf_neuralnetwork);
-    this->knl_predict->setArg(2, *this->buf_task_data_transform);
-    this->knl_predict->setArg(3, *this->buf_taskdata);
-    this->knl_predict->setArg(4, number_of_networks);
+    this->knl_classification->setArg(0, buf_neural_network_transform);
+    this->knl_classification->setArg(1, buf_neuralnetwork);
+    this->knl_classification->setArg(2, *this->buf_task_data_transform);
+    this->knl_classification->setArg(3, *this->buf_taskdata);
+    this->knl_classification->setArg(4, number_of_networks);
 
 
     int dec_number_of_networks = number_of_networks - 1;
@@ -361,7 +361,7 @@ void NetworkRunner::run_networks_prediction(int number_of_networks, bool verbose
 #ifdef USE_CHRONO
     std::chrono::high_resolution_clock::time_point t1 = std::chrono::high_resolution_clock::now();
 #endif
-    status = this->queue->enqueueNDRangeKernel(*this->knl_predict,
+    status = this->queue->enqueueNDRangeKernel(*this->knl_classification,
                                             NullRange,
                                             // NDRange(global_x, global_y),
                                             // NDRange(number_of_neurons),

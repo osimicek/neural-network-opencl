@@ -148,7 +148,7 @@ bool getTestVector(neuralNetwork_t *neuralNetwork, taskData_t *taskData, __local
 }
 
 /**
- * Reads and stores input vectors for neural network prediction.
+ * Reads and stores input vectors for neural network classification.
  */
 bool getPredictVector(neuralNetwork_t *neuralNetwork, taskData_t *taskData, __global float **expectedOutput) {
 
@@ -237,18 +237,7 @@ void neuralLearnCycle(neuralNetwork_t *neuralNetwork,
     neurons = layers[numOfLayers - 1];
     if (neuron < neurons) {
         value = values[neuron + valueOffset];
-        // classValue = round(value);
-        // classValue = value;
-        // if (neuralNetwork->setup.classification) {
-        //     classValue = round(value);
-        // }
-
-        // if (expectedOutput[neuron] - classValue) {
-            // ex = 1.f / (1.f + exp(-neuralNetwork->setup.lambda * value));
         errors[neuron + valueOffset] = (expectedOutput[neuron] - value) * (value * (1 - value));
-        // } else {
-        //     errors[neuron + valueOffset] = 0;
-        // }
     }
     int maxNeurons = get_group_size();
     barrier(CLK_LOCAL_MEM_FENCE);
@@ -284,28 +273,6 @@ void neuralLearnCycle(neuralNetwork_t *neuralNetwork,
         valueOffset = prevValueOffset;
     }
     barrier(CLK_LOCAL_MEM_FENCE);
-    // followValueOffset = valueOffset;
-    // for (layer = numOfLayers - 2; layer > 0; layer--) {
-    //     followNeurons = layers[layer + 1];
-    //     neurons = layers[layer];
-    //     valueOffset -= neurons;
-    //      (((followNeurons - 1) >> OPENCL_MEMORY_ALIGN) + 1) << OPENCL_MEMORY_ALIGN;
-    //     // prefetch(&weights[weightOffset], followNeuron * neuronsRounded);
-    //     if (neuron < neurons) {
-    //         weightOffset -=  (neurons - neuron);
-    //         weightError = 0.f;
-    //         for (followNeuron = 0; followNeuron < followNeurons; followNeuron++) {
-    //             weightError += errors[followNeuron + followValueOffset] *
-    //                            weights[followNeuron + weightOffset];
-    //         }
-    //         value = values[neuron + valueOffset];
-    //         errors[neuron + valueOffset] = weightError * (value * (1 - value));
-    //         weightOffset +=  (neurons - neuron);
-    //     }
-    //     weightOffset -=  neurons;
-    //     followValueOffset -= neurons;
-    //     barrier(CLK_LOCAL_MEM_FENCE);
-    // }
     
     // error propagation
     weightOffset = 0;
@@ -377,25 +344,25 @@ void neuralTestCycle(neuralNetwork_t *neuralNetwork,
         barrier(CLK_LOCAL_MEM_FENCE);
     }
 
-    // error of prediction
+    // error of classification
     neurons = layers[numOfLayers - 1];
-    float predictionCandidateValue = -1.f;
-    int predictionCandidateIndex = 0;
+    float classificationCandidateValue = -1.f;
+    int classificationCandidateIndex = 0;
     for (int neur = 0; neur < neurons; neur++) {
         value = values[neur + valueOffset];
         classValue = round(value);
-        if (classValue != 0 && predictionCandidateValue < value) {
-            predictionCandidateValue = value;
-            predictionCandidateIndex = neur;
+        if (classValue != 0 && classificationCandidateValue < value) {
+            classificationCandidateValue = value;
+            classificationCandidateIndex = neur;
         }
     }
-    if (expectedOutput[predictionCandidateIndex] != 1.f || predictionCandidateValue == -1.f) {
+    if (expectedOutput[classificationCandidateIndex] != 1.f || classificationCandidateValue == -1.f) {
         neuralNetwork->currentSquareErrorCounter += 1.f;
     }
 }
 
 /**
- * Performs a prediction cycle of neural network. Input vector is transformed to output vector.
+ * Performs a classification cycle of neural network. Input vector is transformed to output vector.
  * Output vector si stored in suplided data array.
  */
 void neuralPredictCycle(neuralNetwork_t *neuralNetwork, 
@@ -440,7 +407,7 @@ void neuralPredictCycle(neuralNetwork_t *neuralNetwork,
         barrier(CLK_LOCAL_MEM_FENCE);
     }
 
-    // error of prediction
+    // error of classification
     neurons = layers[numOfLayers - 1];
     // expectedOutput[0] = 25;
     // return;
@@ -448,17 +415,17 @@ void neuralPredictCycle(neuralNetwork_t *neuralNetwork,
         expectedOutput[neuron] = 0.f;
     }
 
-    float predictionCandidateValue = -1.f;
-    int predictionCandidateIndex = 0;
+    float classificationCandidateValue = -1.f;
+    int classificationCandidateIndex = 0;
     for (int neur = 0; neur < neurons; neur++) {
         value = values[neur + valueOffset];
         classValue = round(value);
-        if (classValue != 0 && predictionCandidateValue < value) {
-            predictionCandidateValue = value;
-            predictionCandidateIndex = neur;
+        if (classValue != 0 && classificationCandidateValue < value) {
+            classificationCandidateValue = value;
+            classificationCandidateIndex = neur;
         }
     }
-    expectedOutput[predictionCandidateIndex] = 1.f;
+    expectedOutput[classificationCandidateIndex] = 1.f;
     // expectedOutput[0] = values[valueOffset];
     // expectedOutput[1] = values[valueOffset + 1];
 }
@@ -625,7 +592,7 @@ __kernel void run_neural_network(
 
 
 
-__kernel void run_neural_network_predict(
+__kernel void run_neural_network_classification(
     __global neural_network_transform_t *neural_network_transform,
     __global float *neural_network_buffer,
     __global task_data_transform_t *task_data_transform,
@@ -661,12 +628,5 @@ __kernel void run_neural_network_predict(
             //     return;
             // }
         }
-        // taskData.learningOutputs[1] = 555;
-        // if (group_id == 1) {
-        //     taskData.learningInputs[6290] = batch_size * group_id;;
-        //     taskData.learningInputs[6291] = taskData.totalLearningLines;
-        // }
-        // taskData.learningOutputs[0] = 777;
-        // exportDataStructures(neural_network_transform, neural_network_buffer, &neuralNetwork);
     }
 }

@@ -102,6 +102,10 @@ void NetworkContainer::update_networks() {
  */
 void NetworkContainer::load_input_data(const char* filename) {
     std::ifstream input(filename);
+    if (input.fail()) {
+        fprintf(stderr,"Could not open file %s \n", filename);
+        exit(-1);
+    }
     
     uint inputVectorSize, outputVectorSize, totalLearningLines, totalTestLines;
     input >> inputVectorSize;
@@ -181,10 +185,14 @@ void NetworkContainer::load_input_data(const char* filename) {
 
 
      /**
-     * Reads and stores input vectors for neural network prediction.
+     * Reads and stores input vectors for neural network classification.
      */
-void NetworkContainer::load_prediction_data(const char* filename) {
+void NetworkContainer::load_classification_data(const char* filename) {
     std::ifstream input(filename);
+    if (input.fail()) {
+        fprintf(stderr,"Could not open file %s \n", filename);
+        exit(-1);
+    }
     
     uint inputVectorSize, outputVectorSize, totalLines, totalTestLines;
     input >> inputVectorSize;
@@ -229,9 +237,9 @@ void NetworkContainer::load_prediction_data(const char* filename) {
 }
 
 /**
- * Stores output vectors for neural network prediction.
+ * Stores output vectors for neural network classification.
  */
-void NetworkContainer::store_prediction(const char* filename) {
+void NetworkContainer::store_classification(const char* filename) {
     std::ofstream out(filename);
 
     for (unsigned int row = 0; row < this->taskData.totalLearningLines; row++) {

@@ -3,6 +3,6 @@
 #include "naiveNeuralNetwork.h"
 namespace optimized {
     void runOptimizedNeuralNetwork(NeuralNetworkT *neuralNetwork, const char* taskFilename, bool verbose = false);
-    void runNeuralNetworkPrediction(NeuralNetworkT *neuralNetwork, const char* taskFilename, bool verbose = false, float** classificationResult = NULL);
+    void runNeuralNetworkClassification(NeuralNetworkT *neuralNetwork, const char* taskFilename, bool verbose = false, float** classificationResult = NULL);
 }
 #endif

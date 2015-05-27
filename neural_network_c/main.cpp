@@ -9,11 +9,11 @@
 
 void test(int argc, char **argv) {
     char *trainingTaskFilename;
-    char *predictionTaskFilename;
+    char *classificationTaskFilename;
     const char *default_filename = "./data/cancer.dt";
-    const char *default_filename2 = "./data/cancer_predict.dt";
+    const char *default_filename2 = "./data/cancer_classification.dt";
     trainingTaskFilename = (char *) default_filename;
-    predictionTaskFilename = (char *) default_filename2;
+    classificationTaskFilename = (char *) default_filename2;
     int layers = 1;
     int neurons = 11;
     if (argc == 3) {
@@ -36,12 +36,10 @@ void test(int argc, char **argv) {
         neuralNetwork.setup.layers[i + 1] = neurons;
     }
 
-    neuralNetwork.setup.layers = tmpLayers;
-
     neuralNetwork.setup.minOutputValue = 0.f;
     neuralNetwork.setup.maxOutputValue = 1.f;
     // neuralNetwork.criteria.maxEpochs = 250;
-    neuralNetwork.criteria.maxEpochs = 10;
+    neuralNetwork.criteria.maxEpochs = 20;
     neuralNetwork.criteria.minProgress = 5.0f;
     neuralNetwork.criteria.maxGeneralizationLoss = 4.0f;
     // for (float l = 0.1; l < 1; l +=0.1) {
@@ -53,9 +51,10 @@ void test(int argc, char **argv) {
     neuralNetwork.criteria.maxEpochs = neuralNetwork.bestSquareError[0] + 1;
     // trains network to best accurancy
     optimized::runOptimizedNeuralNetwork(&neuralNetwork, trainingTaskFilename);
-    // predicts values
+    // classifications values
     wait();
-    optimized::runNeuralNetworkPrediction(&neuralNetwork, predictionTaskFilename, true);
+    optimized::runNeuralNetworkClassification(&neuralNetwork, classificationTaskFilename, true);
+    wait();
 }
 
 

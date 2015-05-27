@@ -11,7 +11,7 @@ class NetworkRunner {
         CommandQueue *queue;
         Context *ctx;
         Kernel *knl_learn;
-        Kernel *knl_predict;
+        Kernel *knl_classification;
         Buffer *buf_task_data_transform;
         Buffer *buf_taskdata;
         int max_neurons;
@@ -24,7 +24,7 @@ class NetworkRunner {
         void set_max_neurons(int value);
         void write_task_data();
         void run_networks(bool verbose = false);
-        void run_networks_prediction(int number_of_networks, bool verbose = false);
+        void run_networks_classification(int number_of_networks, bool verbose = false);
 };
 
 #endif
